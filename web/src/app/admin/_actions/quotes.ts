@@ -66,7 +66,7 @@ export async function sendQuoteAction(projectId: string, quoteId: string): Promi
       await generateDocumentPdf(db, document.id);
     } catch (err) {
       console.error("[pdf] generation failed", err);
-      warning = " تعذّر توليد PDF الآن (تحقق من CHROMIUM_PATH)؛ سيُعاد المحاولة عند فتحه.";
+      warning = " تعذّر توليد ملف PDF الآن (تحقق من CHROMIUM_PATH)؛ ستُعاد المحاولة عند فتحه.";
     }
     revalidatePath(projectPath(projectId));
     return { status: "ok", message: `صدر عرض السعر ${sent.ref} ويظهر للعميل في صفحة التتبع.${warning}` };

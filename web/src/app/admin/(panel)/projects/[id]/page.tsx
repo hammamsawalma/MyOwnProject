@@ -112,6 +112,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           <QuotesSection project={project} quotes={quotes} documents={documents} />
           <PaymentsSection
             project={project}
+            quotes={quotes}
             milestones={milestones}
             documents={documents}
             salesEnabled={salesEnabled}

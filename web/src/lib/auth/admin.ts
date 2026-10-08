@@ -5,7 +5,7 @@ import { policy } from "@/config/policy";
 import type { Db } from "@/db/client";
 import { adminLoginAttempts, adminSessions } from "@/db/schema";
 import { randomToken, safeEqualHex, sha256Hex } from "@/lib/crypto";
-import { hitRateLimit, peekRateLimit } from "@/lib/rate-limit";
+import { hitRateLimit, resetRateLimit } from "@/lib/rate-limit";
 
 /**
  * Single-admin authentication: ADMIN_EMAIL + ADMIN_PASSWORD_HASH (argon2id) from
@@ -48,6 +48,10 @@ export type LoginResult =
   | { ok: false; reason: "invalid_credentials" | "not_configured" }
   | { ok: false; reason: "rate_limited"; retryAt: Date };
 
+/** RFC 5321 path limit; longer input is rejected before touching the database. */
+export const MAX_LOGIN_EMAIL_LENGTH = 254;
+export const MAX_LOGIN_PASSWORD_LENGTH = 1024;
+
 export async function loginAdmin(
   db: Db,
   input: {
@@ -62,17 +66,27 @@ export async function loginAdmin(
   const config = input.config === undefined ? getAdminConfig() : input.config;
   if (!config) return { ok: false, reason: "not_configured" };
 
-  const now = input.now ?? new Date();
   const email = input.email.trim().toLowerCase();
-  const { maxFailuresPerWindow, windowSeconds } = policy.adminLogin;
-  const keys = [`admin-login:ip:${input.ip ?? "unknown"}`, `admin-login:email:${email}`];
+  // Oversized input can never match; refusing it here keeps it out of every table.
+  if (email.length > MAX_LOGIN_EMAIL_LENGTH || input.password.length > MAX_LOGIN_PASSWORD_LENGTH) {
+    return { ok: false, reason: "invalid_credentials" };
+  }
 
+  const now = input.now ?? new Date();
+  const { maxFailuresPerWindow, windowSeconds } = policy.adminLogin;
+  // The IP bucket applies only when the IP comes from a trusted proxy.
+  const keys = [`admin-login:email:${email}`, ...(input.ip ? [`admin-login:ip:${input.ip}`] : [])];
+
+  // Count the attempt atomically BEFORE the (slow) password check, so a burst of
+  // parallel guesses cannot all pass a read-only check; success clears the count.
+  let retryAt: Date | null = null;
   for (const key of keys) {
-    const state = await peekRateLimit(db, key, maxFailuresPerWindow, windowSeconds, now);
-    if (!state.allowed) {
-      await recordAttempt(db, email, input.ip, false, now);
-      return { ok: false, reason: "rate_limited", retryAt: state.resetAt };
-    }
+    const state = await hitRateLimit(db, key, maxFailuresPerWindow, windowSeconds, now);
+    if (!state.allowed && (!retryAt || state.resetAt > retryAt)) retryAt = state.resetAt;
+  }
+  if (retryAt) {
+    await recordAttempt(db, email, input.ip, false, now);
+    return { ok: false, reason: "rate_limited", retryAt };
   }
 
   const emailMatches = safeEqualHex(sha256Hex(email), sha256Hex(config.email.trim().toLowerCase()));
@@ -86,11 +100,9 @@ export async function loginAdmin(
 
   const success = emailMatches && passwordMatches;
   await recordAttempt(db, email, input.ip, success, now);
-  if (!success) {
-    for (const key of keys) await hitRateLimit(db, key, maxFailuresPerWindow, windowSeconds, now);
-    return { ok: false, reason: "invalid_credentials" };
-  }
+  if (!success) return { ok: false, reason: "invalid_credentials" };
 
+  for (const key of keys) await resetRateLimit(db, key);
   const session = await createAdminSession(db, { ip: input.ip, userAgent: input.userAgent, now });
   return { ok: true, sessionToken: session.token, expiresAt: session.expiresAt };
 }

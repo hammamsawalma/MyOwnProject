@@ -93,7 +93,7 @@ describe("document templates", () => {
   });
 
   it("follows report 09 §4.11: numbered scope, client country name, next step with terms and waiver", () => {
-    const html = renderQuoteHtml(quote);
+    const html = renderQuoteHtml({ ...quote, acceptanceOpen: true });
     expect(html).toMatch(/<h2>النطاق: يشمل<\/h2><ol>/);
     expect(html).toContain("السعودية");
     expect(html).not.toContain(">SA<");
@@ -114,5 +114,34 @@ describe("document templates", () => {
 
     const settled = renderReceiptHtml({ ...receipt, paidToDateMinor: 80_000, remainingMinor: 0 });
     expect(settled).toContain("تم سداد قيمة الاتفاق كاملة");
+  });
+
+  it("does not tell the client to accept online while sales were off at issue time", () => {
+    for (const snapshot of [{ ...quote, acceptanceOpen: false }, quote]) {
+      const html = renderQuoteHtml(snapshot);
+      expect(html).toContain("هذا العرض للاطلاع والمراجعة");
+      expect(html).not.toContain("رمز التحقق");
+      expect(html).toContain("الدفعة المقدمة");
+    }
+  });
+
+  it("isolates Latin free text so trailing punctuation stays in place", () => {
+    const html = renderQuoteHtml({
+      ...quote,
+      client: { ...client, name: "Acme Ltd." },
+      summary: "Build a landing page (Make.com fallback).",
+      scopeIncluded: ["Setup (v2)."],
+      lines: [{ description: "Hosting, 1 year.", quantity: 1, unitPriceMinor: 80_000, totalMinor: 80_000 }],
+    });
+    expect(html).toContain("<strong><bdi>Acme Ltd.</bdi></strong>");
+    expect(html).toContain("<p><bdi>Build a landing page (Make.com fallback).</bdi></p>");
+    expect(html).toContain("<li><bdi>Setup (v2).</bdi></li>");
+    expect(html).toContain("<td><bdi>Hosting, 1 year.</bdi></td>");
+  });
+
+  it("writes warranty days with correct Arabic number agreement", () => {
+    expect(renderQuoteHtml({ ...quote, warrantyDays: 7 })).toContain("مدة الضمان: 7 أيام");
+    expect(renderQuoteHtml({ ...quote, warrantyDays: 30 })).toContain("مدة الضمان: 30 يومًا");
+    expect(renderQuoteHtml({ ...quote, warrantyDays: 0 })).toContain("مدة الضمان: بلا ضمان");
   });
 });

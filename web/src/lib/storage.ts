@@ -35,7 +35,8 @@ export function makeStorageKey(...segments: string[]): string {
 }
 
 export function storageRoot(): string {
-  return path.resolve(process.cwd(), env().STORAGE_DIR);
+  // Runtime data directory: excluded from the build's file tracing.
+  return path.resolve(/*turbopackIgnore: true*/ process.cwd(), env().STORAGE_DIR);
 }
 
 /** Local disk under STORAGE_DIR (development and single-server deployments). */

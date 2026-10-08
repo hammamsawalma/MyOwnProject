@@ -15,6 +15,13 @@
       "when": 1791478482998,
       "tag": "0001_immutability",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791484750254,
+      "tag": "0002_admin_login_email_length",
+      "breakpoints": true
     }
   ]
 }

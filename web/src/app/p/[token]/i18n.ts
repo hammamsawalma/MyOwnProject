@@ -1,3 +1,4 @@
+import { AR_NOUNS, arCount, enCount } from "@/lib/plural";
 import type { Locale } from "@/lib/types";
 
 /** Client tracking page strings. Arabic is the default; English via ?lang=en. */
@@ -38,12 +39,16 @@ const ar = {
   pricesInclude: "الأسعار نهائية وتشمل رسوم الدفع.",
   paymentPlan: "جدول الدفع",
   finalAfterLast: "تُسلَّم الملفات النهائية بعد سداد آخر دفعة.",
-  revisionsWarranty: (rev: number, days: number) => `جولات المراجعة المشمولة: ${rev} · الضمان: ${days} يومًا`,
+  revisionsWarranty: (rev: number, days: number) =>
+    `جولات المراجعة المشمولة: ${rev} · الضمان: ${days > 0 ? arCount(days, AR_NOUNS.day) : "بلا ضمان"}`,
   thirdParty: "تكاليف الطرف الثالث",
   downloadPdf: "تنزيل PDF",
   acceptedOn: (date: string) => `قبلتَ هذا العرض في ${date}.`,
+  /** Badge of a sent quote that cannot be accepted (yet). */
+  forReview: "للاطلاع",
   acceptTitle: "قبول العرض",
-  acceptTerms: (version: string) => `قرأت الشروط وأوافق عليها (نسخة الشروط ${version}).`,
+  /** Rendered around the terms version: lead + version + tail. */
+  acceptTerms: { lead: "قرأت الشروط وأوافق عليها (نسخة الشروط", tail: ")." },
   acceptWaiver:
     "أطلب البدء في العمل فورًا، وأعلم أن ذلك يُسقط حقي في العدول خلال 14 يومًا بمجرد بدء التنفيذ (يهمّ العملاء في الاتحاد الأوروبي).",
   sendCode: "أرسل رمز التحقق إلى بريدي",
@@ -53,14 +58,14 @@ const ar = {
   sending: "جارٍ الإرسال…",
   confirming: "جارٍ التأكيد…",
   tickBoxesFirst: "يرجى تأكيد الخانتين أولًا.",
-  codeSent: (to: string) => `أرسلنا رمزًا إلى ${to}، صالحًا 10 دقائق.`,
+  codeSent: (to: string, minutes: number) =>
+    `أرسلنا رمزًا إلى ${to}، وهو صالح لمدة ${arCount(minutes, AR_NOUNS.minute, { oblique: true })}.`,
   accepted: "شكرًا لك! سُجّل قبولك للعرض.",
   payments: "الدفعات",
   paymentsSoonTitle: "الدفع الإلكتروني سيُفتح قريبًا",
   paymentsSoon: "لا يُطلب منك دفع أي مبلغ الآن، ولا يُحصَّل أي مبلغ عبر هذه الصفحة. سنتواصل معك عند فتح الدفع.",
   payNow: "ادفع الآن",
   receipt: "الإيصال",
-  noPayments: "لا دفعات مطلوبة حاليًا.",
   paidOn: (date: string) => `دُفعت في ${date}`,
   files: "الملفات والمعاينات",
   previews: "المعاينات",
@@ -120,12 +125,14 @@ const en: Dictionary = {
   pricesInclude: "Prices are final and include payment fees.",
   paymentPlan: "Payment schedule",
   finalAfterLast: "Final files are delivered after the last payment.",
-  revisionsWarranty: (rev, days) => `Included revision rounds: ${rev} · Warranty: ${days} days`,
+  revisionsWarranty: (rev, days) =>
+    `Included revision rounds: ${rev} · Warranty: ${days > 0 ? enCount(days, "day") : "none"}`,
   thirdParty: "Third-party costs",
   downloadPdf: "Download PDF",
   acceptedOn: (date) => `You accepted this quote on ${date}.`,
+  forReview: "For review",
   acceptTitle: "Accept the quote",
-  acceptTerms: (version) => `I have read and agree to the terms (terms version ${version}).`,
+  acceptTerms: { lead: "I have read and agree to the terms (terms version", tail: ")." },
   acceptWaiver:
     "I ask you to start work immediately and understand that I lose my 14-day right of withdrawal once work begins (relevant for EU clients).",
   sendCode: "Email me a verification code",
@@ -135,7 +142,7 @@ const en: Dictionary = {
   sending: "Sending…",
   confirming: "Confirming…",
   tickBoxesFirst: "Please tick both boxes first.",
-  codeSent: (to) => `We sent a code to ${to}. It is valid for 10 minutes.`,
+  codeSent: (to, minutes) => `We sent a code to ${to}. It is valid for ${enCount(minutes, "minute")}.`,
   accepted: "Thank you! Your acceptance has been recorded.",
   payments: "Payments",
   paymentsSoonTitle: "Online payment opens soon",
@@ -143,7 +150,6 @@ const en: Dictionary = {
     "You do not need to pay anything now, and no amount is collected through this page. We will contact you once payment opens.",
   payNow: "Pay now",
   receipt: "Receipt",
-  noPayments: "No payments are due right now.",
   paidOn: (date) => `Paid on ${date}`,
   files: "Files and previews",
   previews: "Previews",

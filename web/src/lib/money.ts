@@ -65,13 +65,16 @@ export function fromMinor(minor: number, currency: Currency): number {
 
 /**
  * Locale-aware formatting. Western digits are used in both languages so amounts
- * match document numbers (Q-2026-0001) and render consistently in PDFs.
+ * match document numbers (Q-2026-0001) and render consistently in PDFs. Arabic
+ * shows dollars as "1,250.00 USD" (ICU's "US$" is unusual for Arabic readers and
+ * the documents name the currency as USD); euros keep the € sign.
  */
 export function formatMoney(minor: number, currency: Currency, locale: "ar" | "en" = "ar"): string {
   const tag = locale === "ar" ? "ar-u-nu-latn" : "en-US";
   return new Intl.NumberFormat(tag, {
     style: "currency",
     currency,
+    currencyDisplay: locale === "ar" && currency === "USD" ? "code" : "symbol",
     minimumFractionDigits: MINOR_DIGITS[currency],
     maximumFractionDigits: MINOR_DIGITS[currency],
   }).format(fromMinor(minor, currency));

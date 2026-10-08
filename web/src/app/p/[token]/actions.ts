@@ -2,18 +2,21 @@
 
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { policy } from "@/config/policy";
 import { CLIENT_PORTAL_PREFIX } from "@/config/routes";
+import { ltr } from "@/lib/bidi";
 import { getDb } from "@/db/client";
 import { deliverables } from "@/db/schema";
 import { DomainError } from "@/lib/errors";
 import { verifyOtp } from "@/lib/otp";
 import { hasDownloadGrant, portalRequestContext, setDownloadGrantCookie, verifyPortalToken } from "@/lib/portal-access";
 import { getSalesConfig, SALES_DISABLED_NOTICE } from "@/lib/sales";
+import { finalsPaidFor } from "@/lib/services/deliverables";
 import { requestClientOtp } from "@/lib/services/portal";
 import { acceptQuote } from "@/lib/services/quotes";
 import type { Locale } from "@/lib/types";
 import type { ActionState } from "@/lib/ui/action-state";
-import { runAction } from "@/lib/ui/errors";
+import { runClientAction } from "@/lib/ui/errors";
 import { bool, str } from "@/lib/ui/form";
 import { dictionary } from "./i18n";
 
@@ -39,7 +42,7 @@ export async function acceptQuoteAction(
   fd: FormData,
 ): Promise<ActionState> {
   const t = dictionary(locale);
-  return runAction(async (): Promise<ActionState> => {
+  return runClientAction(async (): Promise<ActionState> => {
     const link = await access(token);
     // Accepting a quote is the sale itself: refused (with the calm notice) while sales are off.
     if (!getSalesConfig().salesEnabled) return { status: "error", message: SALES_DISABLED_NOTICE[locale] };
@@ -55,7 +58,7 @@ export async function acceptQuoteAction(
         magicLinkId: link.linkId,
       });
       if (!sent.ok) throw new DomainError("rate_limited", "OTP rate limited");
-      return { status: "ok", message: t.codeSent(sent.sentTo), data: { codeSent: "1" } };
+      return { status: "ok", message: t.codeSent(ltr(sent.sentTo), policy.otp.ttlMinutes), data: { codeSent: "1" } };
     }
 
     await acceptQuote(getDb(), {
@@ -79,7 +82,7 @@ export async function unlockFinalsAction(
   fd: FormData,
 ): Promise<ActionState> {
   const t = dictionary(locale);
-  return runAction(async (): Promise<ActionState> => {
+  return runClientAction(async (): Promise<ActionState> => {
     const link = await access(token);
     const db = getDb();
     const [released] = await db
@@ -94,6 +97,7 @@ export async function unlockFinalsAction(
       )
       .limit(1);
     if (!released) throw new DomainError("not_released", "No released final deliverables");
+    if (!(await finalsPaidFor(db, link.projectId))) throw new DomainError("milestones_unpaid", "Finals are locked");
     if (await hasDownloadGrant(link.projectId)) return { status: "ok", message: t.unlocked, data: { unlocked: "1" } };
 
     if (str(fd, "intent") === "send_code") {
@@ -103,7 +107,7 @@ export async function unlockFinalsAction(
         magicLinkId: link.linkId,
       });
       if (!sent.ok) throw new DomainError("rate_limited", "OTP rate limited");
-      return { status: "ok", message: t.codeSent(sent.sentTo), data: { codeSent: "1" } };
+      return { status: "ok", message: t.codeSent(ltr(sent.sentTo), policy.otp.ttlMinutes), data: { codeSent: "1" } };
     }
 
     const result = await verifyOtp(db, { projectId: link.projectId, purpose: "download_final", code: str(fd, "code") });

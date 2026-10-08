@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray, max } from "drizzle-orm";
+import { eq, inArray, max } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "@/db/client";
-import { paymentMilestones } from "@/db/schema";
+import { paymentMilestones, quotes } from "@/db/schema";
 import type { EventActor } from "@/lib/domain-enums";
 import { DomainError, NotFoundError } from "@/lib/errors";
 import { CURRENCIES } from "@/lib/money";
@@ -23,11 +23,17 @@ export const CreateMilestoneInput = z.object({
   currency: z.enum(CURRENCIES),
 });
 
-/** Drafting milestones is always allowed, even while sales are disabled. */
+/**
+ * Drafting milestones is always allowed, even while sales are disabled. They use
+ * the project currency so totals and receipts never mix currencies.
+ */
 export async function createMilestone(db: Db, input: z.input<typeof CreateMilestoneInput>): Promise<MilestoneRow> {
   const data = CreateMilestoneInput.parse(input);
   return db.transaction(async (tx) => {
-    await getProject(tx, data.projectId, { forUpdate: true });
+    const project = await getProject(tx, data.projectId, { forUpdate: true });
+    if (data.currency !== project.currency) {
+      throw new DomainError("currency_mismatch", `Milestones must use the project currency (${project.currency})`);
+    }
     const [last] = await tx
       .select({ sequence: max(paymentMilestones.sequence) })
       .from(paymentMilestones)
@@ -47,12 +53,23 @@ export async function createMilestone(db: Db, input: z.input<typeof CreateMilest
   });
 }
 
+/**
+ * Deletes a manual draft milestone. Drafts created from an accepted quote are the
+ * agreed schedule (the final-delivery rule depends on them) and are refused: the
+ * schedule changes through a new quote version (before any payment) or an add-on.
+ */
 export async function deleteDraftMilestone(db: Db, milestoneId: string): Promise<void> {
-  const rows = await db
-    .delete(paymentMilestones)
-    .where(and(eq(paymentMilestones.id, milestoneId), eq(paymentMilestones.status, "draft")))
-    .returning({ id: paymentMilestones.id });
-  if (rows.length === 0) throw new DomainError("milestone_not_draft", "Only draft milestones can be deleted");
+  await db.transaction(async (tx) => {
+    const milestone = await lockMilestone(tx, milestoneId);
+    if (milestone.status !== "draft") throw new DomainError("milestone_not_draft", "Only draft milestones can be deleted");
+    if (milestone.quoteId) {
+      const [quote] = await tx.select({ status: quotes.status }).from(quotes).where(eq(quotes.id, milestone.quoteId));
+      if (quote?.status === "accepted") {
+        throw new DomainError("milestone_agreed", "Milestones of an accepted quote cannot be deleted");
+      }
+    }
+    await tx.delete(paymentMilestones).where(eq(paymentMilestones.id, milestone.id));
+  });
 }
 
 async function lockMilestone(tx: Db, milestoneId: string): Promise<MilestoneRow> {
@@ -173,15 +190,37 @@ export async function recordPayment(
   });
 }
 
-/** Marks a paid milestone refunded or disputed (a credit note is issued separately). */
+const MARK_FROM: Record<"refunded" | "disputed" | "paid", readonly string[]> = {
+  refunded: ["paid", "disputed"],
+  disputed: ["paid"],
+  // A dispute resolved in our favour (e.g. chargeback won): the payment stands.
+  paid: ["disputed"],
+};
+
+const MARK_EVENT: Record<keyof typeof MARK_FROM, string> = {
+  refunded: "payment_refunded",
+  disputed: "payment_disputed",
+  paid: "payment_dispute_resolved",
+};
+
+/**
+ * Marks a paid milestone refunded or disputed (a credit note is issued
+ * separately), or closes a dispute so the milestone counts as paid again.
+ */
 export async function markMilestone(
   db: Db,
-  input: { milestoneId: string; status: "refunded" | "disputed"; note?: string | null; actor?: EventActor; now?: Date },
+  input: {
+    milestoneId: string;
+    status: keyof typeof MARK_FROM;
+    note?: string | null;
+    actor?: EventActor;
+    now?: Date;
+  },
 ): Promise<MilestoneRow> {
   const now = input.now ?? new Date();
   return db.transaction(async (tx) => {
     const current = await lockMilestone(tx, input.milestoneId);
-    const allowedFrom = input.status === "refunded" ? ["paid", "disputed"] : ["paid"];
+    const allowedFrom = MARK_FROM[input.status];
     if (!allowedFrom.includes(current.status)) {
       throw new DomainError("milestone_invalid_status", `Cannot mark a ${current.status} milestone as ${input.status}`);
     }
@@ -193,7 +232,7 @@ export async function markMilestone(
     if (!row) throw new Error("milestone update failed");
     await addProjectEvent(tx, {
       projectId: current.projectId,
-      type: `payment_${input.status}`,
+      type: MARK_EVENT[input.status],
       actor: input.actor ?? "admin",
       note: input.note ?? null,
       payload: { milestoneId: current.id },

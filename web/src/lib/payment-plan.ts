@@ -74,7 +74,8 @@ export function splitFor(totalMinor: number, policy: PaymentPolicy, type: PlanTy
   return policy.largeSplit;
 }
 
-function kindFor(index: number, count: number, type: PlanType): MilestoneKind {
+/** Kinds follow position: deposit first, balance last, interim between (add-ons: always "addon"). */
+export function planKindFor(index: number, count: number, type: PlanType): MilestoneKind {
   if (type === "addon") return "addon";
   if (index === 0) return "deposit";
   if (index === count - 1) return "balance";
@@ -91,7 +92,7 @@ export function defaultPaymentPlan(
   const percents = splitFor(totalMinor, policy, type);
   const amounts = splitByPercentages(totalMinor, percents);
   return percents.map((percent, i) => ({
-    kind: kindFor(i, percents.length, type),
+    kind: planKindFor(i, percents.length, type),
     sequence: i + 1,
     percent,
     amountMinor: amounts[i] ?? 0,
@@ -103,6 +104,38 @@ export class PaymentPlanError extends Error {
     super(message);
     this.name = "PaymentPlanError";
   }
+}
+
+/**
+ * A manually edited plan, normalised on the server: ordered by sequence, numbered
+ * 1..n and with kinds derived from position, so an initial quote always starts
+ * with the deposit (the kickoff rule depends on it). Percentages must sum to 100.
+ */
+export function normalizePlan(plan: readonly PlannedMilestone[], type: PlanType): PlannedMilestone[] {
+  if (plan.reduce((acc, m) => acc + m.percent, 0) !== 100) {
+    throw new PaymentPlanError("Payment plan percentages must sum to 100");
+  }
+  const ordered = [...plan].sort((a, b) => a.sequence - b.sequence);
+  return ordered.map((m, i) => ({
+    kind: planKindFor(i, ordered.length, type),
+    sequence: i + 1,
+    percent: m.percent,
+    amountMinor: m.amountMinor,
+  }));
+}
+
+/** Whether a stored plan is exactly what the policy would produce for this total. */
+export function isPolicyDefaultPlan(
+  plan: readonly PlannedMilestone[],
+  totalMinor: number,
+  policy: PaymentPolicy,
+  type: PlanType,
+): boolean {
+  const expected = defaultPaymentPlan(totalMinor, "USD", policy, type);
+  return (
+    expected.length === plan.length &&
+    expected.every((m, i) => m.percent === plan[i]?.percent && m.amountMinor === plan[i]?.amountMinor)
+  );
 }
 
 /** A plan edited by the admin must still cover the quote total exactly. */
@@ -117,6 +150,35 @@ export function assertPlanMatchesTotal(plan: readonly PlannedMilestone[], totalM
 
 interface MilestoneLike {
   status: MilestoneStatus;
+}
+
+/**
+ * Part of the agreed schedule: drafts count only when they come from an accepted
+ * quote (manual drafts are still being prepared and stay hidden from the client).
+ */
+export function isAgreedMilestone(
+  milestone: { status: MilestoneStatus; quoteId: string | null },
+  acceptedQuoteIds: ReadonlySet<string>,
+): boolean {
+  return milestone.status !== "draft" || (milestone.quoteId !== null && acceptedQuoteIds.has(milestone.quoteId));
+}
+
+/**
+ * Contract total and amount paid of the agreed, non-refunded milestones in one
+ * currency (receipts and the admin payments header).
+ */
+export function scheduleTotals(
+  milestones: readonly { status: MilestoneStatus; quoteId: string | null; currency: Currency; amountMinor: number }[],
+  acceptedQuoteIds: ReadonlySet<string>,
+  currency: Currency,
+): { contractTotalMinor: number; paidToDateMinor: number } {
+  const agreed = milestones.filter(
+    (m) => m.currency === currency && m.status !== "refunded" && isAgreedMilestone(m, acceptedQuoteIds),
+  );
+  return {
+    contractTotalMinor: agreed.reduce((acc, m) => acc + m.amountMinor, 0),
+    paidToDateMinor: agreed.filter((m) => m.status === "paid").reduce((acc, m) => acc + m.amountMinor, 0),
+  };
 }
 
 /** Final deliverables are released only after every milestone is paid (report 09 §4.1). */

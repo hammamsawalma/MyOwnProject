@@ -31,6 +31,7 @@ export const EVENT_TYPE_LABELS_AR: Record<string, string> = {
   payment_recorded: "تسجيل دفعة",
   payment_refunded: "استرداد دفعة",
   payment_disputed: "اعتراض على دفعة",
+  payment_dispute_resolved: "حسم الاعتراض (الدفعة مدفوعة)",
   change_request_created: "طلب تغيير",
   client_update: "رسالة للعميل",
   note: "ملاحظة داخلية",

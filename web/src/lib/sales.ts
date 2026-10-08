@@ -25,8 +25,8 @@ export const SALES_ACTIONS = [
 export type SalesAction = (typeof SALES_ACTIONS)[number];
 
 export const SALES_DISABLED_NOTICE: Localized = {
-  ar: "الدفع الإلكتروني سيُفتح قريبًا. يمكنك مراجعة العرض الآن، وسنتواصل معك عند فتح الدفع.",
-  en: "Online payment opens soon. You can review the quote now, and we will contact you once payment opens.",
+  ar: "يمكنك مراجعة العرض كاملًا الآن. قبول العرض والدفع سيُفتحان قريبًا، وسنتواصل معك حينها. لا يُطلب منك دفع أي مبلغ الآن، ولا يُحصَّل أي مبلغ عبر هذه الصفحة.",
+  en: "You can review the full quote now. Accepting the quote and paying will open soon, and we will contact you then. You do not need to pay anything now, and nothing is collected through this page.",
 };
 
 export function getSalesConfig(): SalesConfig {

@@ -8,12 +8,12 @@ import { lineTotal, parseMoney, splitByPercentages, type Currency } from "@/lib/
 import {
   defaultPaymentPlan,
   MILESTONE_KIND_LABELS,
-  MILESTONE_KINDS,
-  type MilestoneKind,
+  planKindFor,
   type PaymentPolicy,
   type PlannedMilestone,
 } from "@/lib/payment-plan";
 import type { FormAction } from "@/lib/ui/action-state";
+import { AR_NOUNS, arCount } from "@/lib/plural";
 import { PACKAGE_TIER_LABELS } from "@/lib/ui/labels";
 
 export interface QuoteBuilderDefaults {
@@ -35,7 +35,7 @@ export interface QuoteBuilderDefaults {
   notes: string;
   discountMinor: number;
   lineItems: { description: string; quantity: number; unitPriceMinor: number }[];
-  /** null = use the policy defaults. */
+  /** null = use the policy defaults (recomputed when the total changes). */
   paymentPlan: PlannedMilestone[] | null;
 }
 
@@ -101,11 +101,14 @@ export function QuoteBuilder({
       }),
     ),
   );
-  const [customPlan, setCustomPlan] = useState<{ kind: MilestoneKind; percent: string }[] | null>(
-    defaults.paymentPlan ? defaults.paymentPlan.map((m) => ({ kind: m.kind, percent: String(m.percent) })) : null,
+  // Manual plan as percentages; milestone kinds follow position (deposit first, balance last).
+  const [customPlan, setCustomPlan] = useState<string[] | null>(
+    defaults.paymentPlan ? defaults.paymentPlan.map((m) => String(m.percent)) : null,
   );
 
   const planType = defaults.kind === "addon" ? "addon" : "project";
+  // Add-ons are added to the project total, so they keep the project currency.
+  const currencyLocked = defaults.kind === "addon";
 
   const computed = useMemo(() => {
     const errors: string[] = [];
@@ -131,7 +134,7 @@ export function QuoteBuilder({
 
     let plan: PlannedMilestone[] = total > 0 ? defaultPaymentPlan(total, currency, policy, planType) : [];
     if (customPlan && total > 0) {
-      const percents = customPlan.map((m) => Number(m.percent));
+      const percents = customPlan.map(Number);
       const sum = percents.reduce((a, b) => a + b, 0);
       if (customPlan.length === 0 || percents.some((p) => !Number.isInteger(p) || p <= 0)) {
         errors.push("نسب جدول الدفع يجب أن تكون أعدادًا صحيحة موجبة.");
@@ -139,8 +142,8 @@ export function QuoteBuilder({
         errors.push(`مجموع نسب جدول الدفع ${sum}% ويجب أن يكون 100%.`);
       } else {
         const amounts = splitByPercentages(total, percents);
-        plan = customPlan.map((m, i) => ({
-          kind: m.kind,
+        plan = customPlan.map((_, i) => ({
+          kind: planKindFor(i, customPlan.length, planType),
           sequence: i + 1,
           percent: percents[i] ?? 0,
           amountMinor: amounts[i] ?? 0,
@@ -227,8 +230,17 @@ export function QuoteBuilder({
             ) : (
               <div className="hidden sm:block" />
             )}
-            <Field label="العملة" htmlFor="q-currency" hint="رسوم الدفع ضمن السعر (لا بند رسوم)">
-              <Select id="q-currency" value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>
+            <Field
+              label="العملة"
+              htmlFor="q-currency"
+              hint={currencyLocked ? "عرض الإضافة بعملة المشروع نفسها" : "رسوم الدفع ضمن السعر (لا بند رسوم)"}
+            >
+              <Select
+                id="q-currency"
+                value={currency}
+                disabled={currencyLocked}
+                onChange={(e) => setCurrency(e.target.value as Currency)}
+              >
                 <option value="USD">دولار (USD)</option>
                 <option value="EUR">يورو (EUR)</option>
               </Select>
@@ -395,11 +407,7 @@ export function QuoteBuilder({
             <p className="mb-2 text-sm font-bold">جدول الدفع</p>
             <Checkbox
               checked={customPlan !== null}
-              onChange={(e) =>
-                setCustomPlan(
-                  e.target.checked ? computed.plan.map((m) => ({ kind: m.kind, percent: String(m.percent) })) : null,
-                )
-              }
+              onChange={(e) => setCustomPlan(e.target.checked ? computed.plan.map((m) => String(m.percent)) : null)}
               label="تعديل الجدول يدويًا"
             />
             {customPlan === null ? (
@@ -409,36 +417,19 @@ export function QuoteBuilder({
               </p>
             ) : null}
             <ul className="mt-3 space-y-2">
-              {(customPlan ?? computed.plan.map((m) => ({ kind: m.kind, percent: String(m.percent) }))).map((m, i) => (
+              {(customPlan ?? computed.plan.map((m) => String(m.percent))).map((percent, i, all) => (
                 <li key={i} className="flex items-center gap-2 text-sm">
+                  <span className="min-w-0 flex-1">
+                    {MILESTONE_KIND_LABELS[planKindFor(i, all.length, planType)].ar}
+                  </span>
                   {customPlan ? (
                     <>
-                      <select
-                        aria-label="نوع الدفعة"
-                        value={m.kind}
-                        onChange={(e) =>
-                          setCustomPlan((plan) =>
-                            plan!.map((x, j) => (j === i ? { ...x, kind: e.target.value as MilestoneKind } : x)),
-                          )
-                        }
-                        className="h-8 min-w-0 flex-1 rounded border border-border bg-white px-1 text-xs"
-                      >
-                        {MILESTONE_KINDS.map((k) => (
-                          <option key={k} value={k}>
-                            {MILESTONE_KIND_LABELS[k].ar}
-                          </option>
-                        ))}
-                      </select>
                       <input
-                        aria-label="النسبة"
+                        aria-label={`نسبة الدفعة ${i + 1}`}
                         dir="ltr"
                         inputMode="numeric"
-                        value={m.percent}
-                        onChange={(e) =>
-                          setCustomPlan((plan) =>
-                            plan!.map((x, j) => (j === i ? { ...x, percent: e.target.value } : x)),
-                          )
-                        }
+                        value={percent}
+                        onChange={(e) => setCustomPlan((plan) => plan!.map((x, j) => (j === i ? e.target.value : x)))}
                         className="h-8 w-14 rounded border border-border px-1 text-center text-xs"
                       />
                       <span className="text-xs">%</span>
@@ -446,16 +437,15 @@ export function QuoteBuilder({
                         type="button"
                         onClick={() => setCustomPlan((plan) => plan!.filter((_, j) => j !== i))}
                         className="text-xs text-danger"
-                        aria-label="حذف الدفعة"
+                        aria-label={`حذف الدفعة ${i + 1}`}
                       >
                         ✕
                       </button>
                     </>
                   ) : (
-                    <>
-                      <span className="flex-1">{MILESTONE_KIND_LABELS[m.kind].ar}</span>
-                      <span className="text-xs text-muted">{m.percent}%</span>
-                    </>
+                    <bdi dir="ltr" className="text-xs text-muted">
+                      {percent}%
+                    </bdi>
                   )}
                   <Money
                     minor={computed.plan[i]?.amountMinor ?? 0}
@@ -466,11 +456,18 @@ export function QuoteBuilder({
               ))}
             </ul>
             {customPlan && (
+              <p className="mt-1 text-xs text-muted">
+                {planType === "addon"
+                  ? "كل دفعات الإضافة من نوع «دفعة إضافة»."
+                  : "الأولى دائمًا «الدفعة المقدمة» والأخيرة «الدفعة الأخيرة»؛ بدء العمل يتبع سداد الأولى."}
+              </p>
+            )}
+            {customPlan && (
               <Button
                 size="sm"
                 variant="ghost"
                 className="mt-2"
-                onClick={() => setCustomPlan((plan) => [...(plan ?? []), { kind: "interim", percent: "0" }])}
+                onClick={() => setCustomPlan((plan) => [...(plan ?? []), "0"])}
               >
                 + دفعة
               </Button>
@@ -488,8 +485,9 @@ export function QuoteBuilder({
           </Notice>
         )}
         <p className="text-xs text-muted">
-          تُحفظ كمسودة بلا رقم. عند «الإصدار» يأخذ العرض رقم Q نهائيًا، وصلاحية {validityDays} أيام، والشروط{" "}
-          {termsVersion}، ولا يُعدّل بعدها.
+          تُحفظ كمسودة بلا رقم. عند «الإصدار» يأخذ العرض رقم Q نهائيًا، وصلاحية{" "}
+          {arCount(validityDays, AR_NOUNS.day, { oblique: true })}، والشروط <bdi dir="ltr">{termsVersion}</bdi>، ولا
+          يُعدّل بعدها.
         </p>
         <SubmitButton className="w-full" disabled={computed.errors.length > 0} pendingLabel="جارٍ الحفظ…">
           حفظ المسودة

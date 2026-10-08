@@ -50,8 +50,8 @@ describe("minor units", () => {
 describe("formatting", () => {
   it("formats in Arabic with Western digits and in English", () => {
     const ar = formatMoney(125_050, "USD", "ar");
-    expect(ar).toContain("1,250.50");
-    expect(ar).toMatch(/US\$|\$/);
+    expect(ar).toMatch(/1,250\.50\sUSD/);
+    expect(formatMoney(125_050, "EUR", "ar")).toMatch(/1,250\.50\s€/);
     expect(formatMoney(125_050, "EUR", "en")).toBe("€1,250.50");
     expect(formatMoney(15_000, "USD", "en")).toBe("$150.00");
   });

@@ -38,7 +38,7 @@ async function tryGeneratePdf(documentId: string): Promise<string | null> {
     return null;
   } catch (err) {
     console.error("[pdf] generation failed", err);
-    return "تعذّر توليد ملف PDF الآن (تحقق من CHROMIUM_PATH)؛ سيُعاد المحاولة عند فتحه.";
+    return "تعذّر توليد ملف PDF الآن (تحقق من CHROMIUM_PATH)؛ ستُعاد المحاولة عند فتحه.";
   }
 }
 
@@ -117,7 +117,7 @@ export async function recordPaymentAction(
 export async function markMilestoneAction(
   projectId: string,
   milestoneId: string,
-  status: "refunded" | "disputed",
+  status: "refunded" | "disputed" | "paid",
   _prev: ActionState,
   fd: FormData,
 ): Promise<ActionState> {
@@ -126,15 +126,15 @@ export async function markMilestoneAction(
     await assertMilestoneInProject(projectId, milestoneId);
     await markMilestone(getDb(), { milestoneId, status, note: optStr(fd, "note") });
     revalidatePath(projectPath(projectId));
-    return {
-      status: "ok",
-      message:
-        status === "refunded"
-          ? "عُلّمت الدفعة مستردة. أصدر إشعارًا دائنًا من قسم المستندات."
-          : "عُلّمت الدفعة معترضًا عليها.",
-    };
+    return { status: "ok", message: MARK_MESSAGES[status] };
   });
 }
+
+const MARK_MESSAGES = {
+  refunded: "سُجّلت الدفعة مستردةً. أصدر إشعارًا دائنًا من قسم المستندات.",
+  disputed: "سُجّل اعتراض على الدفعة.",
+  paid: "أُغلق الاعتراض، وعادت الدفعة مدفوعة.",
+} as const;
 
 export async function issueCreditNoteAction(
   projectId: string,

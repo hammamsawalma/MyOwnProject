@@ -1,5 +1,6 @@
 import { brand } from "@/config/brand";
 import { policy } from "@/config/policy";
+import { AR_NOUNS, arCount, enCount } from "@/lib/plural";
 import type { Locale } from "@/lib/types";
 
 /** Plain, bilingual-ready transactional emails (one language per message). */
@@ -30,60 +31,67 @@ const OTP_PURPOSE_TEXT = {
   download_final: { ar: "لتنزيل الملفات النهائية", en: "to download the final files" },
 } as const;
 
+const greeting = (locale: Locale, name: string) => (locale === "ar" ? `مرحبًا ${name}،` : `Hello ${name},`);
+const signOff = (locale: Locale) => (locale === "ar" ? `فريق ${brand.name.ar}` : `The ${brand.name.en} team`);
+
 export function otpEmail(input: {
   locale: Locale;
   code: string;
   purpose: keyof typeof OTP_PURPOSE_TEXT;
   projectTitle: string;
+  clientName: string;
 }): RenderedEmail {
-  const { locale, code, purpose, projectTitle } = input;
+  const { locale, code, purpose, projectTitle, clientName } = input;
   const minutes = policy.otp.ttlMinutes;
-  if (locale === "ar") {
-    const lines = [
-      `رمز التحقق ${OTP_PURPOSE_TEXT[purpose].ar} في مشروع "${projectTitle}":`,
-      code,
-      `الرمز صالح ${minutes} دقائق ولمرة واحدة. إن لم تطلبه فتجاهل هذه الرسالة.`,
-    ];
-    return {
-      subject: `رمز التحقق: ${code}`,
-      text: lines.join("\n\n"),
-      html: layout("ar", [
-        escapeHtml(lines[0] ?? ""),
-        `<strong style="font-size:24px;letter-spacing:4px" dir="ltr">${code}</strong>`,
-        escapeHtml(lines[2] ?? ""),
-      ]),
-    };
-  }
-  const lines = [
-    `Your verification code ${OTP_PURPOSE_TEXT[purpose].en} for "${projectTitle}":`,
-    code,
-    `The code is valid for ${minutes} minutes and can be used once. If you did not request it, ignore this email.`,
-  ];
+  const [intro, validity, subject] =
+    locale === "ar"
+      ? [
+          `رمز التحقق ${OTP_PURPOSE_TEXT[purpose].ar} في مشروع «${projectTitle}»:`,
+          `الرمز صالح لمدة ${arCount(minutes, AR_NOUNS.minute, { oblique: true })} ولمرة واحدة. إن لم تطلبه فتجاهل هذه الرسالة.`,
+          `رمز التحقق: ${code}`,
+        ]
+      : [
+          `Your verification code ${OTP_PURPOSE_TEXT[purpose].en} for "${projectTitle}":`,
+          `The code is valid for ${enCount(minutes, "minute")} and can be used once. If you did not request it, ignore this email.`,
+          `Verification code: ${code}`,
+        ];
+  const hello = greeting(locale, clientName);
   return {
-    subject: `Verification code: ${code}`,
-    text: lines.join("\n\n"),
-    html: layout("en", [
-      escapeHtml(lines[0] ?? ""),
-      `<strong style="font-size:24px;letter-spacing:4px">${code}</strong>`,
-      escapeHtml(lines[2] ?? ""),
+    subject,
+    text: [hello, intro, code, validity, signOff(locale)].join("\n\n"),
+    html: layout(locale, [
+      escapeHtml(hello),
+      escapeHtml(intro),
+      `<strong style="font-size:24px;letter-spacing:4px" dir="ltr">${code}</strong>`,
+      escapeHtml(validity),
+      escapeHtml(signOff(locale)),
     ]),
   };
 }
 
-export function portalLinkEmail(input: { locale: Locale; url: string; projectTitle: string }): RenderedEmail {
-  const { locale, url, projectTitle } = input;
-  if (locale === "ar") {
-    const intro = `هذا رابط متابعة مشروعك "${projectTitle}". احتفظ به ولا تشاركه مع أحد.`;
-    return {
-      subject: `رابط متابعة مشروعك: ${projectTitle}`,
-      text: `${intro}\n\n${url}`,
-      html: layout("ar", [escapeHtml(intro), `<a href="${escapeHtml(url)}" dir="ltr">${escapeHtml(url)}</a>`]),
-    };
-  }
-  const intro = `Here is the private tracking link for your project "${projectTitle}". Keep it safe and do not share it.`;
+export function portalLinkEmail(input: {
+  locale: Locale;
+  url: string;
+  projectTitle: string;
+  clientName: string;
+}): RenderedEmail {
+  const { locale, url, projectTitle, clientName } = input;
+  const [intro, subject] =
+    locale === "ar"
+      ? [`هذا رابط متابعة مشروعك «${projectTitle}». احتفظ به ولا تشاركه مع أحد.`, `رابط متابعة مشروعك: ${projectTitle}`]
+      : [
+          `Here is the private tracking link for your project "${projectTitle}". Keep it safe and do not share it.`,
+          `Your project tracking link: ${projectTitle}`,
+        ];
+  const hello = greeting(locale, clientName);
   return {
-    subject: `Your project tracking link: ${projectTitle}`,
-    text: `${intro}\n\n${url}`,
-    html: layout("en", [escapeHtml(intro), `<a href="${escapeHtml(url)}">${escapeHtml(url)}</a>`]),
+    subject,
+    text: [hello, intro, url, signOff(locale)].join("\n\n"),
+    html: layout(locale, [
+      escapeHtml(hello),
+      escapeHtml(intro),
+      `<a href="${escapeHtml(url)}" dir="ltr">${escapeHtml(url)}</a>`,
+      escapeHtml(signOff(locale)),
+    ]),
   };
 }

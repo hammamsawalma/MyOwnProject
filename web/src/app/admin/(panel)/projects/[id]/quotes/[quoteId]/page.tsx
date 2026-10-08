@@ -6,6 +6,7 @@ import { getDb } from "@/db/client";
 import { requireAdmin } from "@/lib/auth/next-session";
 import { getProject } from "@/lib/services/projects";
 import { getQuoteWithLines } from "@/lib/services/quotes";
+import { isPolicyDefaultPlan } from "@/lib/payment-plan";
 import { getPaymentPolicy } from "@/lib/settings";
 import { assertUuid, orNotFound } from "@/lib/ui/not-found";
 import { saveQuoteDraftAction } from "../../../../../_actions/quotes";
@@ -25,6 +26,15 @@ export default async function EditQuotePage({ params }: { params: Promise<{ id: 
   if (quote.projectId !== id) notFound();
   // Issued quotes are immutable; changes need a new version.
   if (quote.status !== "draft") redirect(`/admin/projects/${id}#quotes`);
+  const paymentPolicy = await getPaymentPolicy(db);
+  // Reopen in manual mode only if the admin customised the plan; otherwise the
+  // policy default is recomputed when the price changes.
+  const customised = !isPolicyDefaultPlan(
+    quote.paymentPlan,
+    quote.totalMinor,
+    paymentPolicy,
+    quote.kind === "addon" ? "addon" : "project",
+  );
 
   return (
     <>
@@ -39,8 +49,8 @@ export default async function EditQuotePage({ params }: { params: Promise<{ id: 
       />
       <QuoteBuilder
         action={saveQuoteDraftAction.bind(null, id, quoteId)}
-        defaults={defaultsFromQuote(quote, lineItems, true)}
-        policy={await getPaymentPolicy(db)}
+        defaults={defaultsFromQuote(quote, lineItems, customised)}
+        policy={paymentPolicy}
         termsVersion={policy.termsVersion}
         validityDays={policy.quoteValidityDays}
       />

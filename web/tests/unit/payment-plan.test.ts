@@ -4,9 +4,12 @@ import {
   canReleaseFinalDeliverables,
   DEFAULT_PAYMENT_POLICY,
   defaultPaymentPlan,
+  isPolicyDefaultPlan,
   nextUnpaidMilestone,
+  normalizePlan,
   PaymentPlanError,
   resolvePaymentPolicy,
+  scheduleTotals,
 } from "@/lib/payment-plan";
 
 const summary = (total: number, type: "project" | "addon" = "project") =>
@@ -78,5 +81,65 @@ describe("plan validation and release rule", () => {
       { sequence: 3, status: "draft" as const },
     ]);
     expect(next?.sequence).toBe(2);
+  });
+});
+
+describe("manual plans and schedule totals (review fixes)", () => {
+  it("derives kinds from position whatever the client sent", () => {
+    const plan = normalizePlan(
+      [
+        { kind: "balance", sequence: 2, percent: 70, amountMinor: 700 },
+        { kind: "balance", sequence: 1, percent: 30, amountMinor: 300 },
+      ],
+      "project",
+    );
+    expect(plan.map((m) => `${m.sequence}:${m.kind}:${m.amountMinor}`)).toEqual(["1:deposit:300", "2:balance:700"]);
+    expect(normalizePlan([{ kind: "deposit", sequence: 1, percent: 100, amountMinor: 5 }], "addon")[0]?.kind).toBe(
+      "addon",
+    );
+    expect(() => normalizePlan([{ kind: "deposit", sequence: 1, percent: 90, amountMinor: 5 }], "project")).toThrow(
+      PaymentPlanError,
+    );
+  });
+
+  it("recognises a plan that is just the policy default", () => {
+    const plan = defaultPaymentPlan(100_000, "USD");
+    expect(isPolicyDefaultPlan(plan, 100_000, DEFAULT_PAYMENT_POLICY, "project")).toBe(true);
+    expect(isPolicyDefaultPlan(plan, 300_000, DEFAULT_PAYMENT_POLICY, "project")).toBe(false);
+    const custom = normalizePlan(
+      [
+        { kind: "deposit", sequence: 1, percent: 70, amountMinor: 70_000 },
+        { kind: "balance", sequence: 2, percent: 30, amountMinor: 30_000 },
+      ],
+      "project",
+    );
+    expect(isPolicyDefaultPlan(custom, 100_000, DEFAULT_PAYMENT_POLICY, "project")).toBe(false);
+  });
+
+  it("totals only the agreed, non-refunded schedule in one currency", () => {
+    const accepted = new Set(["q1"]);
+    const m = (
+      status: "draft" | "paid" | "refunded" | "sent",
+      amountMinor: number,
+      quoteId: string | null,
+      currency: "USD" | "EUR" = "USD",
+    ) => ({
+      status,
+      amountMinor,
+      quoteId,
+      currency,
+    });
+    const totals = scheduleTotals(
+      [
+        m("paid", 500, "q1"),
+        m("draft", 500, "q1"),
+        m("draft", 200, null),
+        m("refunded", 100, null),
+        m("paid", 90, null, "EUR"),
+      ],
+      accepted,
+      "USD",
+    );
+    expect(totals).toEqual({ contractTotalMinor: 1_000, paidToDateMinor: 500 });
   });
 });

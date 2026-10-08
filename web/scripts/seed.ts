@@ -100,7 +100,8 @@ async function main() {
           quoteId = quote.id;
         },
       ],
-      ["quote_sent", () => sendQuote(db, { quoteId })],
+      // The demo simulates sales being on, so its quote PDF carries the acceptance steps.
+      ["quote_sent", () => sendQuote(db, { quoteId, sales: DEMO_SALES })],
       [
         "awaiting_deposit",
         async () => {

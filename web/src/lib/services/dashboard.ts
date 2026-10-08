@@ -59,7 +59,14 @@ export async function getTodayOverview(db: Db, now: Date = new Date()) {
   const lateProjects = await db
     .select({ id: projects.id, ref: projects.ref, title: projects.title, dueAt: projects.dueAt, status: projects.status })
     .from(projects)
-    .where(and(inArray(projects.status, ACTIVE_WORK), isNotNull(projects.dueAt), lt(projects.dueAt, now)));
+    .where(
+      and(
+        inArray(projects.status, ACTIVE_WORK),
+        isNotNull(projects.dueAt),
+        // Late only once the due day has passed in the business time zone.
+        sql`(${projects.dueAt} at time zone ${timeZone})::date < ${today}::date`,
+      ),
+    );
 
   const collectedThisMonth = await db
     .select({ currency: paymentMilestones.currency, totalMinor: sum(paymentMilestones.amountMinor).mapWith(Number) })

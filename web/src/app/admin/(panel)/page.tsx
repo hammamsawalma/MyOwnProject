@@ -138,8 +138,8 @@ export default async function TodayPage() {
               {overview.overdueDeposits.map((d) => (
                 <li key={`late-${d.milestoneId}`} className="flex items-center justify-between gap-3 py-2.5">
                   <Link href={`${projectHref(d.projectId)}#payments`} className="min-w-0 truncate hover:text-brand">
-                    <Ltr className="text-xs text-muted">{projectById.get(d.projectId)?.ref}</Ltr> · مقدم متأخر أكثر من
-                    48 ساعة
+                    <Ltr className="text-xs text-muted">{projectById.get(d.projectId)?.ref}</Ltr> · دفعة مقدمة متأخرة
+                    أكثر من 48 ساعة
                   </Link>
                   <Money minor={d.amountMinor} currency={d.currency} className="text-danger" />
                 </li>

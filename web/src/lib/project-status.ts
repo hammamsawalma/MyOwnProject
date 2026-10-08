@@ -138,7 +138,11 @@ const STATUS_DETAIL: Record<MainStatus, Localized> = {
   internal_qa: { ar: "نراجع جودة العمل قبل عرضه عليك.", en: "We are checking quality before sharing it with you." },
   revisions: { ar: "ننفّذ ملاحظاتك.", en: "We are applying your feedback." },
   change_request: { ar: "نراجع طلب الإضافة ونُعدّ عرضًا له.", en: "We are reviewing your change request and preparing a quote for it." },
-  client_review: { ar: "المعاينة جاهزة. راجعها ثم وافق أو أرسل ملاحظاتك.", en: "Your preview is ready. Review it, then approve or send feedback." },
+  // No approve/feedback buttons on the portal yet: point to the real channels.
+  client_review: {
+    ar: "المعاينة جاهزة. راجعها ثم أرسل لنا موافقتك أو ملاحظاتك عبر واتساب أو البريد.",
+    en: "Your preview is ready. Please review it and send us your approval or feedback by WhatsApp or email.",
+  },
   awaiting_balance: { ar: "تمت موافقتك. نسلّم الملفات النهائية بعد الدفعة الأخيرة.", en: "Approved. Final files are released after the last payment." },
   delivered: { ar: "تم تسليم مشروعك.", en: "Your project has been delivered." },
   warranty: { ar: "مشروعك في فترة الضمان.", en: "Your project is in its warranty period." },

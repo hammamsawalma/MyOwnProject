@@ -31,7 +31,8 @@ import type {
 } from "@/db/schema";
 import type { DocumentType } from "@/lib/domain-enums";
 import { magicLinkState } from "@/lib/magic-links";
-import { MILESTONE_KIND_LABELS, MILESTONE_KINDS } from "@/lib/payment-plan";
+import { AR_NOUNS, arCount } from "@/lib/plural";
+import { MILESTONE_KIND_LABELS, MILESTONE_KINDS, scheduleTotals } from "@/lib/payment-plan";
 import {
   CLIENT_FLAG_LABELS,
   GUARD_MESSAGES_AR,
@@ -235,7 +236,7 @@ export function QuotesSection({
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-medium">
-                      {q.title}{" "}
+                      <bdi>{q.title}</bdi>{" "}
                       <span className="text-xs text-muted">
                         · الإصدار {q.version} · {QUOTE_KIND_LABELS_AR[q.kind]}
                       </span>
@@ -256,7 +257,7 @@ export function QuotesSection({
                   {q.paymentPlan.map((m, i) => (
                     <span key={i}>
                       {i > 0 && " · "}
-                      {MILESTONE_KIND_LABELS[m.kind].ar} {m.percent}% (
+                      {MILESTONE_KIND_LABELS[m.kind].ar} <bdi dir="ltr">{m.percent}%</bdi> (
                       <Money minor={m.amountMinor} currency={q.currency} />)
                     </span>
                   ))}
@@ -311,17 +312,24 @@ export function QuotesSection({
 
 export function PaymentsSection({
   project,
+  quotes,
   milestones,
   documents,
   salesEnabled,
 }: {
   project: Project;
+  quotes: Quote[];
   milestones: Milestone[];
   documents: DocumentRow[];
   salesEnabled: boolean;
 }) {
-  const paid = milestones.filter((m) => m.status === "paid").reduce((acc, m) => acc + m.amountMinor, 0);
-  const total = milestones.reduce((acc, m) => acc + m.amountMinor, 0);
+  const acceptedQuoteIds = new Set(quotes.filter((q) => q.status === "accepted").map((q) => q.id));
+  // Same basis as the receipts: the agreed, non-refunded schedule in the project currency.
+  const { contractTotalMinor: total, paidToDateMinor: paid } = scheduleTotals(
+    milestones,
+    acceptedQuoteIds,
+    project.currency,
+  );
   return (
     <Card
       title="الدفعات"
@@ -479,7 +487,7 @@ export function PaymentsSection({
                 </div>
 
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {m.status === "draft" && (
+                  {m.status === "draft" && !(m.quoteId && acceptedQuoteIds.has(m.quoteId)) && (
                     <ActionForm action={deleteMilestoneAction.bind(null, project.id, m.id)} confirm="حذف هذه المسودة؟">
                       <SubmitButton size="sm" variant="ghost">
                         حذف المسودة
@@ -495,7 +503,7 @@ export function PaymentsSection({
                         >
                           <Input name="note" placeholder="سبب الاسترداد" />
                           <SubmitButton size="sm" variant="secondary">
-                            تعليم كمستردة
+                            تسجيلها مستردة
                           </SubmitButton>
                         </ActionForm>
                         {m.status === "paid" && (
@@ -505,7 +513,18 @@ export function PaymentsSection({
                           >
                             <Input name="note" placeholder="تفاصيل الاعتراض" />
                             <SubmitButton size="sm" variant="danger">
-                              تعليم كمعترض عليها
+                              تسجيل اعتراض عليها
+                            </SubmitButton>
+                          </ActionForm>
+                        )}
+                        {m.status === "disputed" && (
+                          <ActionForm
+                            action={markMilestoneAction.bind(null, project.id, m.id, "paid")}
+                            className="space-y-2"
+                          >
+                            <Input name="note" placeholder="كيف حُسم الاعتراض (مثل: كسبنا النزاع لدى المزوّد)" />
+                            <SubmitButton size="sm" variant="secondary">
+                              حُسم الاعتراض: الدفعة مدفوعة
                             </SubmitButton>
                           </ActionForm>
                         )}
@@ -538,11 +557,9 @@ export function PaymentsSection({
               <Field label="المبلغ" htmlFor="ms-amount">
                 <Input id="ms-amount" name="amount" inputMode="decimal" dir="ltr" required placeholder="250.00" />
               </Field>
-              <Field label="العملة" htmlFor="ms-currency">
-                <Select id="ms-currency" name="currency" defaultValue={project.currency}>
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                </Select>
+              <Field label="العملة" htmlFor="ms-currency" hint="عملة المشروع">
+                <input type="hidden" name="currency" value={project.currency} />
+                <Input id="ms-currency" value={project.currency} dir="ltr" readOnly disabled />
               </Field>
             </div>
             <SubmitButton size="sm" variant="secondary">
@@ -606,7 +623,7 @@ export function DocumentsSection({ project, documents }: { project: Project; doc
                             placeholder="المبلغ (فارغ = كامل الإيصال)"
                           />
                           <SubmitButton size="sm" variant="secondary">
-                            إصدار CN
+                            إصدار إشعار دائن
                           </SubmitButton>
                         </ActionForm>
                       </details>
@@ -649,7 +666,9 @@ export function DeliverablesSection({
           {deliverables.map((d) => (
             <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
               <div className="min-w-0">
-                <p className="font-medium">{d.title}</p>
+                <p className="font-medium">
+                  <bdi>{d.title}</bdi>
+                </p>
                 <p className="text-xs text-muted">
                   {DELIVERABLE_KIND_LABELS[d.kind].ar} · {d.fileName ?? (d.externalUrl ? "رابط خارجي" : "")}
                   {d.releasedAt && ` · مُتاح منذ ${formatDate(d.releasedAt)}`}
@@ -732,7 +751,9 @@ export function ChangeRequestsSection({ project, requests }: { project: Project;
             return (
               <li key={cr.id} className="rounded-lg border border-border p-3">
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <p className="min-w-0 whitespace-pre-line">{cr.description}</p>
+                  <p dir="auto" className="min-w-0 whitespace-pre-line">
+                    {cr.description}
+                  </p>
                   <div className="flex items-center gap-1">
                     {cr.inScope === true && <Badge tone="info">ضمن النطاق</Badge>}
                     {cr.inScope === false && <Badge tone="warning">خارج النطاق</Badge>}
@@ -768,17 +789,17 @@ export function ChangeRequestsSection({ project, requests }: { project: Project;
                     )}
                     <ActionForm action={resolveChangeRequestAction.bind(null, project.id, cr.id, "done")}>
                       <SubmitButton size="sm" variant="ghost">
-                        منفّذ
+                        تم التنفيذ
                       </SubmitButton>
                     </ActionForm>
                     <ActionForm action={resolveChangeRequestAction.bind(null, project.id, cr.id, "declined")}>
                       <SubmitButton size="sm" variant="ghost">
-                        مرفوض
+                        رفض الطلب
                       </SubmitButton>
                     </ActionForm>
                     <ActionForm action={resolveChangeRequestAction.bind(null, project.id, cr.id, "cancelled")}>
                       <SubmitButton size="sm" variant="ghost">
-                        ملغى
+                        إلغاء الطلب
                       </SubmitButton>
                     </ActionForm>
                   </div>
@@ -875,7 +896,7 @@ export function LinksSection({ project, client, links }: { project: Project; cli
   const now = new Date();
   const active = links.filter((l) => magicLinkState(l, now) === "active");
   return (
-    <Card title="رابط تتبع العميل" id="links" description="رابط سري لكل مشروع؛ يُحفظ هاشه فقط">
+    <Card title="رابط تتبع العميل" id="links" description="رابط سري لكل مشروع؛ تُحفظ بصمته المشفّرة (hash) فقط">
       <MagicLinkGenerator action={createMagicLinkAction.bind(null, project.id)} hasActiveLinks={active.length > 0} />
       <div className="mt-3 border-t border-border pt-3">
         <ActionForm
@@ -911,8 +932,13 @@ export function LinksSection({ project, client, links }: { project: Project; cli
                   </ActionForm>
                 </div>
                 <p className="mt-0.5 text-muted">
-                  ينتهي {formatDate(l.expiresAt)} · الاستخدام {l.useCount}
-                  {l.lastUsedAt && ` · آخر استخدام ${formatDateTime(l.lastUsedAt)}`}
+                  ينتهي <span className="whitespace-nowrap">{formatDate(l.expiresAt)}</span> · الاستخدام {l.useCount}
+                  {l.lastUsedAt && (
+                    <>
+                      {" · آخر استخدام "}
+                      <span className="whitespace-nowrap">{formatDateTime(l.lastUsedAt)}</span>
+                    </>
+                  )}
                 </p>
               </li>
             );
@@ -955,7 +981,9 @@ export function DetailsSection({ project, client }: { project: Project; client: 
             label: "الضمان",
             value: project.warrantyEndsAt
               ? `حتى ${formatDate(project.warrantyEndsAt)}`
-              : `${project.warrantyDays} يومًا`,
+              : project.warrantyDays > 0
+                ? arCount(project.warrantyDays, AR_NOUNS.day)
+                : "بلا ضمان",
           },
           { label: "أُنشئ", value: formatDate(project.createdAt) },
           { label: "سُلّم", value: formatDate(project.deliveredAt) },
@@ -970,10 +998,10 @@ export function DetailsSection({ project, client }: { project: Project; client: 
             <Input id="pd-due" name="dueAt" type="date" dir="ltr" defaultValue={dateInputValue(project.dueAt)} />
           </Field>
           <div className="grid grid-cols-2 gap-2">
-            <Field label="الجهاز المسند" htmlFor="pd-machine">
+            <Field label="الجهاز المُكلَّف" htmlFor="pd-machine">
               <Input id="pd-machine" name="assignedMachine" defaultValue={project.assignedMachine ?? ""} />
             </Field>
-            <Field label="الشخص المسند" htmlFor="pd-person">
+            <Field label="المسؤول عن التنفيذ" htmlFor="pd-person">
               <Input id="pd-person" name="assignedPerson" defaultValue={project.assignedPerson ?? ""} />
             </Field>
           </div>

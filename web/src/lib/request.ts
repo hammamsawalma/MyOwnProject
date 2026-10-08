@@ -1,12 +1,15 @@
+import { env, type Env } from "@/config/env";
+
 /**
- * Client IP from proxy headers. Assumes the app runs behind a trusted reverse
- * proxy (Cloudflare / nginx) that overwrites these headers; see build notes.
+ * Client IP, read only from the header the configured reverse proxy overwrites
+ * (TRUSTED_PROXY). Any other forwarding header can be forged by the client, so
+ * without a trusted proxy the IP is unknown (null) and per-IP limits are skipped.
  */
-export function clientIpFromHeaders(h: Pick<Headers, "get">): string | null {
-  const candidates = [h.get("cf-connecting-ip"), h.get("x-real-ip"), h.get("x-forwarded-for")?.split(",")[0]];
-  for (const value of candidates) {
-    const ip = value?.trim();
-    if (ip) return ip.slice(0, 64);
-  }
-  return null;
+export function clientIpFromHeaders(
+  h: Pick<Headers, "get">,
+  trustedProxy: Env["TRUSTED_PROXY"] = env().TRUSTED_PROXY,
+): string | null {
+  const header = trustedProxy === "cloudflare" ? "cf-connecting-ip" : trustedProxy === "nginx" ? "x-real-ip" : null;
+  const ip = header ? h.get(header)?.trim() : undefined;
+  return ip ? ip.slice(0, 64) : null;
 }

@@ -9,12 +9,15 @@ import type {
 } from "@/lib/documents/snapshots";
 import { formatMoney, type Currency } from "@/lib/money";
 import { MILESTONE_KIND_LABELS } from "@/lib/payment-plan";
+import { AR_NOUNS, arCount } from "@/lib/plural";
 import { embeddedFontCss, PDF_FONT_FAMILY } from "./fonts";
 
 /**
  * Arabic (RTL) document templates: quote (report 09 §4.11), payment receipt and
  * credit note (§4.12). Latin fragments (refs, amounts, emails) are wrapped in
- * <bdi dir="ltr"> so the bidi algorithm never reorders them.
+ * <bdi dir="ltr"> so the bidi algorithm never reorders them, and free text typed
+ * by people (names, titles, scope, descriptions) in <bdi> (direction detected
+ * from its first letter), so "Acme Ltd." keeps its trailing dot.
  */
 
 export const NOT_TAX_INVOICE_AR = "ليست فاتورة ضريبية";
@@ -31,6 +34,7 @@ export function escapeHtml(value: string): string {
 
 const e = escapeHtml;
 const ltr = (value: string) => `<bdi dir="ltr" class="nw">${e(value)}</bdi>`;
+const text = (value: string) => `<bdi>${e(value)}</bdi>`;
 const money = (minor: number, currency: Currency) => ltr(formatMoney(minor, currency, "ar"));
 
 /** "SA" -> "السعودية"; values that are not ISO codes (e.g. the issuer's "تركيا") pass through. */
@@ -104,8 +108,8 @@ function header(titleAr: string, titleEn: string, notTaxInvoice: boolean): strin
 
 function partyBlock(title: string, party: PartyBlock): string {
   const lines = [
-    `<strong>${e(party.companyName ?? party.name)}</strong>`,
-    party.companyName ? e(party.name) : null,
+    `<strong>${text(party.companyName ?? party.name)}</strong>`,
+    party.companyName ? text(party.name) : null,
     party.country ? e(countryLabel(party.country)) : null,
     party.email ? ltr(party.email) : null,
     party.phone ? ltr(party.phone) : null,
@@ -128,17 +132,33 @@ function issuerParty(s: DocumentSnapshot): PartyBlock {
 function list(items: string[], ordered = false): string {
   if (!items.length) return `<p class="note">—</p>`;
   const tag = ordered ? "ol" : "ul";
-  return `<${tag}>${items.map((i) => `<li>${e(i)}</li>`).join("")}</${tag}>`;
+  return `<${tag}>${items.map((i) => `<li>${text(i)}</li>`).join("")}</${tag}>`;
 }
 
 function footer(s: DocumentSnapshot): string {
   return `<footer><span>${e(s.issuer.name)} · ${ltr(s.issuer.domain)}</span><span>${ltr(s.ref)}</span></footer>`;
 }
 
+function warrantyText(days: number): string {
+  return days > 0 ? arCount(days, AR_NOUNS.day) : "بلا ضمان";
+}
+
+/**
+ * The acceptance instructions only when the client could accept online at issue
+ * time; while sales are off (SALES_ENABLED=false) a neutral review-only line.
+ */
+function nextStep(s: QuoteSnapshot): string {
+  if (s.acceptanceOpen !== true) {
+    return "هذا العرض للاطلاع والمراجعة. سيُفتح قبول العرض والدفع قريبًا وسنتواصل معك حينها؛ لا يُطلب منك دفع أي مبلغ الآن.";
+  }
+  const deadline = s.validUntil ? `قبل ${e(formatDate(s.validUntil))} ` : "";
+  return `يُقبَل العرض من صفحة متابعة المشروع (الرابط الخاص المرسل إليك) ${deadline}بالموافقة على الشروط (نسخة ${ltr(s.termsVersion)}) وتأكيد طلب البدء فورًا والتنازل عن حق العدول، ثم إدخال رمز التحقق الذي يصل إلى بريدك.`;
+}
+
 export function renderQuoteHtml(s: QuoteSnapshot): string {
   const rows = s.lines
     .map(
-      (l, i) => `<tr><td>${i + 1}</td><td>${e(l.description)}</td><td class="num">${ltr(String(l.quantity))}</td>
+      (l, i) => `<tr><td>${i + 1}</td><td>${text(l.description)}</td><td class="num">${ltr(String(l.quantity))}</td>
       <td class="num">${money(l.unitPriceMinor, s.currency)}</td><td class="num">${money(l.totalMinor, s.currency)}</td></tr>`,
     )
     .join("");
@@ -153,17 +173,17 @@ export function renderQuoteHtml(s: QuoteSnapshot): string {
 <table class="meta">
   <tr><td class="label">رقم العرض</td><td>${ltr(s.ref)} <span class="note">(الإصدار ${ltr(String(s.version))})</span></td>
       <td class="label">التاريخ</td><td class="nw">${e(formatDate(s.issuedAt))}</td></tr>
-  <tr><td class="label">المشروع</td><td>${e(s.project.title)} <span class="note">${ltr(s.project.ref)}</span></td>
+  <tr><td class="label">المشروع</td><td>${text(s.project.title)} <span class="note">${ltr(s.project.ref)}</span></td>
       <td class="label">صالح حتى</td><td class="nw">${s.validUntil ? e(formatDate(s.validUntil)) : "—"}</td></tr>
 </table>
 <div class="parties">${partyBlock("من", issuerParty(s))}${partyBlock("إلى", s.client)}</div>
-<h2>${e(s.title)}</h2>
-${s.summary ? `<p>${e(s.summary)}</p>` : ""}
+<h2>${text(s.title)}</h2>
+${s.summary ? `<p>${text(s.summary)}</p>` : ""}
 <h2>النطاق: يشمل</h2>${list(s.scopeIncluded, true)}
 <h2>النطاق: لا يشمل</h2>${list(s.scopeExcluded)}
 ${s.assumptions.length ? `<h2>الافتراضات والمطلوب من العميل</h2>${list(s.assumptions)}` : ""}
 ${s.acceptanceCriteria.length ? `<h2>معايير القبول</h2>${list(s.acceptanceCriteria)}` : ""}
-${s.timeline ? `<h2>الجدول الزمني</h2><p>${e(s.timeline)}</p>` : ""}
+${s.timeline ? `<h2>الجدول الزمني</h2><p>${text(s.timeline)}</p>` : ""}
 <h2>السعر</h2>
 <table class="items"><thead><tr><th>#</th><th>البند</th><th class="num">الكمية</th><th class="num">سعر الوحدة</th><th class="num">المجموع</th></tr></thead>
 <tbody>${rows}</tbody></table>
@@ -177,12 +197,12 @@ ${s.timeline ? `<h2>الجدول الزمني</h2><p>${e(s.timeline)}</p>` : ""}
 <table class="items"><thead><tr><th>الدفعة</th><th class="num">النسبة</th><th class="num">المبلغ</th></tr></thead><tbody>${plan}</tbody></table>
 <p class="note">لا تُسلَّم الملفات النهائية قبل سداد آخر دفعة.</p>
 <h2>المراجعات والضمان</h2>
-<p>جولات المراجعة المشمولة: ${ltr(String(s.revisionsIncluded))} · مدة الضمان: ${ltr(String(s.warrantyDays))} يومًا</p>
-${s.thirdPartyCosts ? `<h2>تكاليف الطرف الثالث</h2><p>${e(s.thirdPartyCosts)}</p>` : ""}
+<p>جولات المراجعة المشمولة: ${ltr(String(s.revisionsIncluded))} · مدة الضمان: ${e(warrantyText(s.warrantyDays))}</p>
+${s.thirdPartyCosts ? `<h2>تكاليف الطرف الثالث</h2><p>${text(s.thirdPartyCosts)}</p>` : ""}
 <h2>الخطوة التالية</h2>
 <div class="next">
-  <p style="margin:0">يتم قبول العرض من صفحة متابعة المشروع (الرابط الخاص المرسل إليك) قبل ${s.validUntil ? e(formatDate(s.validUntil)) : "انتهاء صلاحيته"}: بالموافقة على الشروط (نسخة ${ltr(s.termsVersion)})، وتأكيد طلب البدء فورًا والتنازل عن حق العدول، ثم رمز تحقق يصل إلى بريدك.</p>
-  <p class="note" style="margin:4px 0 0">يبدأ العمل بعد استلام الدفعة الأولى حسب جدول الدفع أعلاه.</p>
+  <p style="margin:0">${nextStep(s)}</p>
+  <p class="note" style="margin:4px 0 0">يبدأ العمل بعد استلام الدفعة المقدمة حسب جدول الدفع أعلاه.</p>
 </div>
 ${footer(s)}`;
   return page(`عرض سعر ${s.ref}`, body);
@@ -192,13 +212,13 @@ export function renderReceiptHtml(s: ReceiptSnapshot): string {
   const body = `${header("إيصال دفع", "Payment Receipt", true)}
 <table class="meta">
   <tr><td class="label">رقم الإيصال</td><td>${ltr(s.ref)}</td><td class="label">تاريخ الإصدار</td><td class="nw">${e(formatDate(s.issuedAt))}</td></tr>
-  <tr><td class="label">المشروع</td><td>${e(s.project.title)} <span class="note">${ltr(s.project.ref)}</span></td>
+  <tr><td class="label">المشروع</td><td>${text(s.project.title)} <span class="note">${ltr(s.project.ref)}</span></td>
       <td class="label">عرض السعر</td><td>${s.quoteRef ? ltr(s.quoteRef) : "—"}</td></tr>
   <tr><td class="label">العملة</td><td>${ltr(s.currency)}</td><td class="label">نوع المستند</td><td class="nw">إيصال دفع</td></tr>
 </table>
 <div class="parties">${partyBlock("المُصدِر", issuerParty(s))}${partyBlock("العميل", s.client)}</div>
 <table class="items"><thead><tr><th>البيان</th><th class="num">المبلغ</th></tr></thead>
-<tbody><tr><td>${e(s.milestone.label ?? MILESTONE_KIND_LABELS[s.milestone.kind].ar)} <span class="note">(الدفعة رقم ${ltr(String(s.milestone.sequence))}${s.quoteRef ? ` من عرض السعر ${ltr(s.quoteRef)}` : ""})</span></td><td class="num">${money(s.amountMinor, s.currency)}</td></tr></tbody></table>
+<tbody><tr><td>${text(s.milestone.label ?? MILESTONE_KIND_LABELS[s.milestone.kind].ar)} <span class="note">(الدفعة رقم ${ltr(String(s.milestone.sequence))}${s.quoteRef ? ` من عرض السعر ${ltr(s.quoteRef)}` : ""})</span></td><td class="num">${money(s.amountMinor, s.currency)}</td></tr></tbody></table>
 <table class="totals">
   <tr class="grand"><td>المبلغ المستلم</td><td class="num">${money(s.amountMinor, s.currency)}</td></tr>
   <tr><td>قيمة الاتفاق</td><td class="num">${money(s.contractTotalMinor, s.currency)}</td></tr>
@@ -226,12 +246,12 @@ export function renderCreditNoteHtml(s: CreditNoteSnapshot): string {
   const body = `${header("إشعار دائن", "Credit Note", true)}
 <table class="meta">
   <tr><td class="label">رقم الإشعار</td><td>${ltr(s.ref)}</td><td class="label">تاريخ الإصدار</td><td>${e(formatDate(s.issuedAt))}</td></tr>
-  <tr><td class="label">المشروع</td><td>${e(s.project.title)} <span class="note">${ltr(s.project.ref)}</span></td>
+  <tr><td class="label">المشروع</td><td>${text(s.project.title)} <span class="note">${ltr(s.project.ref)}</span></td>
       <td class="label">يعكس المستند</td><td>${ltr(s.reversesRef)}</td></tr>
 </table>
 <div class="parties">${partyBlock("المُصدِر", issuerParty(s))}${partyBlock("العميل", s.client)}</div>
 <table class="items"><thead><tr><th>السبب</th><th class="num">المبلغ المُعاد</th></tr></thead>
-<tbody><tr><td>${e(s.reason)}</td><td class="num">${money(s.amountMinor, s.currency)}</td></tr></tbody></table>
+<tbody><tr><td>${text(s.reason)}</td><td class="num">${money(s.amountMinor, s.currency)}</td></tr></tbody></table>
 ${footer(s)}`;
   return page(`إشعار دائن ${s.ref}`, body);
 }

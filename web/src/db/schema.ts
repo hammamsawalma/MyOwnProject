@@ -536,7 +536,11 @@ export const adminLoginAttempts = pgTable(
     success: boolean("success").notNull(),
     createdAt: createdAt(),
   },
-  (t) => [index("admin_login_attempts_ip_idx").on(t.ip, t.createdAt)],
+  (t) => [
+    index("admin_login_attempts_ip_idx").on(t.ip, t.createdAt),
+    // Defense in depth: login refuses longer input before storing it (lib/auth/admin.ts).
+    check("admin_login_attempts_email_length_check", sql`char_length(${t.email}) <= 320`),
+  ],
 );
 
 /** Fixed-window counters for rate limiting (see lib/rate-limit.ts). */

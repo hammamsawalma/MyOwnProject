@@ -56,13 +56,18 @@ export async function addDeliverable(
   return row;
 }
 
-/** Releases final deliverables; refuses unless every payment milestone is paid. */
-export async function releaseFinalDeliverablesInTx(db: Db, projectId: string, now: Date = new Date()): Promise<number> {
+/** Whether final files may be released or downloaded now: every milestone is paid. */
+export async function finalsPaidFor(db: Db, projectId: string): Promise<boolean> {
   const milestones = await db
     .select({ status: paymentMilestones.status })
     .from(paymentMilestones)
     .where(eq(paymentMilestones.projectId, projectId));
-  if (!canReleaseFinalDeliverables(milestones)) {
+  return canReleaseFinalDeliverables(milestones);
+}
+
+/** Releases final deliverables; refuses unless every payment milestone is paid. */
+export async function releaseFinalDeliverablesInTx(db: Db, projectId: string, now: Date = new Date()): Promise<number> {
+  if (!(await finalsPaidFor(db, projectId))) {
     throw new DomainError("milestones_unpaid", "Final deliverables are released only after the last payment");
   }
   const released = await db
@@ -78,8 +83,9 @@ export async function releaseFinalDeliverables(db: Db, projectId: string, now?: 
 }
 
 /**
- * Checks that a final deliverable may be downloaded. The caller must already
- * have verified the client's OTP (or a download grant) for this project.
+ * Checks that a deliverable may be downloaded. Finals must be released AND still
+ * fully paid (a later refund or dispute locks them again). The caller must
+ * already have verified the client's OTP (or a download grant) for finals.
  */
 export async function getReleasedFinalDeliverable(db: Db, projectId: string, deliverableId: string) {
   const [row] = await db
@@ -87,8 +93,9 @@ export async function getReleasedFinalDeliverable(db: Db, projectId: string, del
     .from(deliverables)
     .where(and(eq(deliverables.id, deliverableId), eq(deliverables.projectId, projectId)));
   if (!row) throw new NotFoundError("deliverable", deliverableId);
-  if (row.kind === "final" && !row.released) {
-    throw new DomainError("not_released", "This deliverable is not released yet");
+  if (!row.released) throw new DomainError("not_released", "This deliverable is not released yet");
+  if (row.kind === "final" && !(await finalsPaidFor(db, projectId))) {
+    throw new DomainError("milestones_unpaid", "Final deliverables are locked while a payment is refunded or disputed");
   }
   return row;
 }

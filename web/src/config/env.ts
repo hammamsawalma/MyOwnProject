@@ -35,6 +35,12 @@ const EnvSchema = z.object({
   STORAGE_DIR: z.string().default("./storage"),
   MAGIC_LINK_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(90),
   BUSINESS_TIMEZONE: z.string().default("Europe/Istanbul"),
+  /**
+   * Which reverse proxy sets the client IP: "cloudflare" (CF-Connecting-IP),
+   * "nginx" (X-Real-IP set to $remote_addr) or "none" (IP unknown; per-IP
+   * limits are skipped). Forwarding headers from any other source are ignored.
+   */
+  TRUSTED_PROXY: z.enum(["none", "cloudflare", "nginx"]).default("none"),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui";
-import { ltr } from "@/lib/bidi";
+import { isolate, ltr } from "@/lib/bidi";
 import { formatMoney } from "@/lib/money";
 import { MILESTONE_KIND_LABELS } from "@/lib/payment-plan";
 import { clientView, STATUS_LABELS_AR, type MainStatus, type ProjectStatus } from "@/lib/project-status";
@@ -48,7 +48,7 @@ export function eventTitleAr(event: EventLike): string {
       return `${label}${kindLabel}${amount}${receipt}`;
     }
     case "deliverable_added":
-      return typeof p.title === "string" ? `${label}: ${p.title}` : label;
+      return typeof p.title === "string" ? `${label}: ${isolate(p.title)}` : label;
     case "credit_note_issued":
       return typeof p.ref === "string" ? `${label} ${ltr(p.ref)}` : label;
     default:

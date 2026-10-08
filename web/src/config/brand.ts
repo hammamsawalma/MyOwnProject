@@ -2,20 +2,21 @@ import { z } from "zod";
 import type { Locale } from "../lib/types";
 
 /**
- * THE single source of brand identity. The final name is not chosen yet
- * (candidates: HazirLab / Labeeb Studio, decision Q26), so everything below is a
- * neutral placeholder. To rebrand, edit only this object; the UI, emails and PDFs
- * read from it.
+ * THE single source of brand identity. Name, tagline and domain were decided in
+ * Q47/Q48/Q27-a (HazirLab). Colors stay neutral until the visual direction (Q31)
+ * is chosen; contact details are placeholders until the WhatsApp number (Q33) and
+ * mailbox exist. The issuer block must switch to the registered legal name once
+ * the business is registered (Turkish law requires the trader's own name).
  */
 export const brand = {
-  name: { ar: "الاستوديو التقني", en: "Tech Studio" },
-  shortName: { ar: "الاستوديو", en: "Studio" },
-  logoText: { ar: "الاستوديو", en: "STUDIO" },
+  name: { ar: "حاضر لاب", en: "HazirLab" },
+  shortName: { ar: "حاضر لاب", en: "HazirLab" },
+  logoText: { ar: "حاضر لاب", en: "HazirLab" },
   tagline: {
-    ar: "أتمتة وذكاء اصطناعي للأعمال",
-    en: "Automation & AI for businesses",
+    ar: "ذكاءٌ حاضر لأعمالك",
+    en: "Smart automation, always ready.",
   },
-  domain: "example.com",
+  domain: "hazirlab.com",
   colors: {
     primary: "#1E3A5F",
     primaryForeground: "#FFFFFF",
@@ -32,7 +33,7 @@ export const brand = {
   },
   /** Issuer block printed on quotes and receipts. */
   issuer: {
-    name: { ar: "الاستوديو التقني", en: "Tech Studio" },
+    name: { ar: "حاضر لاب", en: "HazirLab" },
     country: { ar: "تركيا", en: "Türkiye" },
   },
 } as const;

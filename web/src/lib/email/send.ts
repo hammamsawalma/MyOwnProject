@@ -3,6 +3,7 @@ import { brand } from "@/config/brand";
 import { env, isProduction } from "@/config/env";
 import type { Db } from "@/db/client";
 import { emailOutbox } from "@/db/schema";
+import { DomainError } from "@/lib/errors";
 
 /**
  * Email delivery. With RESEND_API_KEY set, messages go through the Resend HTTP
@@ -44,9 +45,29 @@ export interface SendEmailOptions {
 
 export async function sendEmail(db: Db, message: EmailMessage, options: SendEmailOptions = {}): Promise<EmailResult> {
   const apiKey = options.apiKey ?? env().RESEND_API_KEY;
-  if (apiKey) return sendViaResend(message, apiKey, options);
+  if (apiKey) {
+    const result = await sendViaResend(message, apiKey, options);
+    if (result.status === "failed") {
+      // Never log the body: it may hold a one-time code or a magic link.
+      console.error(`[email] delivery failed to=${message.to} tag=${message.tag ?? "-"}: ${result.error}`);
+    }
+    return result;
+  }
   if (isProduction()) throw new EmailNotConfiguredError();
   return logToOutbox(db, message);
+}
+
+/**
+ * Like sendEmail, but a provider rejection (bad key, unverified domain, network
+ * error) throws DomainError("email_failed"), so callers never report a message
+ * as sent when it was not.
+ */
+export async function deliverEmail(db: Db, message: EmailMessage, options: SendEmailOptions = {}): Promise<EmailResult> {
+  const result = await sendEmail(db, message, options);
+  if (result.status === "failed") {
+    throw new DomainError("email_failed", "The email could not be delivered", { error: result.error });
+  }
+  return result;
 }
 
 async function sendViaResend(message: EmailMessage, apiKey: string, options: SendEmailOptions): Promise<EmailResult> {

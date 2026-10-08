@@ -4,6 +4,7 @@ import { brand, whatsappUrl } from "@/config/brand";
 import { env } from "@/config/env";
 import { policy } from "@/config/policy";
 import { getDb } from "@/db/client";
+import { AR_NOUNS, arCount } from "@/lib/plural";
 import { requireAdmin } from "@/lib/auth/next-session";
 import { getSalesConfig } from "@/lib/sales";
 import { getDocumentMode, getPaymentPolicy } from "@/lib/settings";
@@ -60,7 +61,7 @@ export default async function SettingsPage() {
             items={[
               { label: "وضع المستندات", value: DOCUMENT_MODE_LABELS[documentMode] },
               { label: "نسخة الشروط", value: <Ltr>{policy.termsVersion}</Ltr> },
-              { label: "صلاحية العرض", value: `${policy.quoteValidityDays} أيام` },
+              { label: "صلاحية العرض", value: arCount(policy.quoteValidityDays, AR_NOUNS.day) },
               {
                 label: "خانة البدء الفوري والتنازل عن العدول",
                 value: policy.requireStartImmediatelyWaiver ? "إلزامية" : "اختيارية",

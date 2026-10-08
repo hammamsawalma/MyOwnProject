@@ -232,6 +232,9 @@ export async function releaseFinalsAction(projectId: string): Promise<ActionStat
   return runAction(async () => {
     const released = await releaseFinalDeliverables(getDb(), projectId);
     revalidatePath(projectPath(projectId));
-    return { status: "ok", message: released ? `فُتح ${released} تسليم نهائي للعميل.` : "لا تسليمات نهائية مغلقة." };
+    return {
+      status: "ok",
+      message: released ? `فُتحت التسليمات النهائية للعميل (العدد: ${released}).` : "لا تسليمات نهائية مغلقة.",
+    };
   });
 }

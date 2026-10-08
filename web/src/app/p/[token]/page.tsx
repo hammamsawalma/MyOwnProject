@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Badge, Card, Ltr, Money, Notice, cx } from "@/components/ui";
 import { brand, whatsappUrl } from "@/config/brand";
+import { isolate } from "@/lib/bidi";
 import { CLIENT_PORTAL_PREFIX } from "@/config/routes";
 import { getDb } from "@/db/client";
 import { MILESTONE_KIND_LABELS, type MilestoneStatus } from "@/lib/payment-plan";
@@ -117,7 +118,7 @@ function Overview({ view, locale, t }: { view: ClientPortalView; locale: Locale;
   const closedTone = view.view.isClosed ? "info" : "warning";
   return (
     <Card>
-      <p className="text-sm text-muted">{t.hello(view.client.name)}</p>
+      <p className="text-sm text-muted">{t.hello(isolate(view.client.name))}</p>
       <h1 dir="auto" className="mt-1 text-xl font-bold leading-snug sm:text-2xl">
         {view.project.title}
       </h1>
@@ -252,7 +253,13 @@ function QuoteCard({
           {quote.validUntil && ` · ${t.validUntil} ${formatDate(quote.validUntil, locale)}`}
         </>
       }
-      actions={<Badge tone={quoteTone(quote.status)}>{QUOTE_STATUS_LABELS[quote.status][locale]}</Badge>}
+      actions={
+        quote.status === "sent" && !quote.canAccept ? (
+          <Badge tone="neutral">{t.forReview}</Badge>
+        ) : (
+          <Badge tone={quoteTone(quote.status)}>{QUOTE_STATUS_LABELS[quote.status][locale]}</Badge>
+        )
+      }
     >
       <div className="space-y-5">
         {quote.summary && (
@@ -323,7 +330,10 @@ function QuoteCard({
             {quote.paymentPlan.map((m, i) => (
               <li key={i} className="flex items-center justify-between gap-3 px-3 py-2">
                 <span>
-                  {MILESTONE_KIND_LABELS[m.kind][locale]} <span className="text-xs text-muted">({m.percent}%)</span>
+                  {MILESTONE_KIND_LABELS[m.kind][locale]}{" "}
+                  <span className="text-xs text-muted">
+                    (<bdi dir="ltr">{m.percent}%</bdi>)
+                  </span>
                 </span>
                 {money(m.amountMinor)}
               </li>
@@ -354,13 +364,21 @@ function QuoteCard({
         {quote.acceptedAt && <Notice tone="success">{t.acceptedOn(formatDate(quote.acceptedAt, locale))}</Notice>}
 
         {quote.status === "sent" &&
-          (view.paymentPolicy.canAcceptQuote ? (
+          (quote.canAccept ? (
             <div className="border-t border-border pt-4">
               <h3 className="mb-3 font-bold">{t.acceptTitle}</h3>
               <AcceptQuoteForm
                 action={acceptQuoteAction.bind(null, token, locale, quote.id)}
                 labels={{
-                  terms: t.acceptTerms(quote.termsVersion ?? "—"),
+                  terms: (
+                    <>
+                      {t.acceptTerms.lead}{" "}
+                      <bdi dir="ltr" className="whitespace-nowrap">
+                        {quote.termsVersion ?? "—"}
+                      </bdi>
+                      {t.acceptTerms.tail}
+                    </>
+                  ),
                   waiver: t.acceptWaiver,
                   sendCode: t.sendCode,
                   resendCode: t.resendCode,
@@ -372,11 +390,8 @@ function QuoteCard({
               />
             </div>
           ) : (
-            view.paymentPolicy.notice && (
-              <Notice tone="info" title={t.paymentsSoonTitle}>
-                {view.paymentPolicy.notice[locale]}
-              </Notice>
-            )
+            // Sales off: the one calm notice on the page (review now, acceptance and payment later).
+            view.paymentPolicy.notice && <Notice tone="info">{view.paymentPolicy.notice[locale]}</Notice>
           ))}
       </div>
     </Card>
@@ -395,54 +410,50 @@ function PaymentsCard({
   t: Dictionary;
 }) {
   const enabled = view.paymentPolicy.showPaymentLinks;
-  if (view.payments.length === 0 && enabled) return null;
+  // Only when there is something payable or already paid (a new lead has nothing to show).
+  if (view.payments.length === 0) return null;
+  const unpaid = view.payments.some((p) => p.status === "draft" || p.status === "sent");
   return (
     <Card title={t.payments}>
-      {!enabled && (
-        <Notice tone="info" title={t.paymentsSoonTitle} className={view.payments.length ? "mb-4" : undefined}>
+      {!enabled && unpaid && (
+        <Notice tone="info" title={t.paymentsSoonTitle} className="mb-4">
           {t.paymentsSoon}
         </Notice>
       )}
-      {view.payments.length === 0 ? (
-        enabled ? (
-          <p className="text-sm text-muted">{t.noPayments}</p>
-        ) : null
-      ) : (
-        <ul className="divide-y divide-border">
-          {view.payments.map((p) => (
-            <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-              <div className="min-w-0">
-                <p className="font-medium">{p.label[locale]}</p>
-                {p.paidAt && <p className="text-xs text-muted">{t.paidOn(formatDate(p.paidAt, locale))}</p>}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Money minor={p.amountMinor} currency={p.currency} locale={locale} className="font-bold" />
-                <Badge tone={milestoneTone(p.status)}>{CLIENT_MILESTONE_STATUS[p.status][locale]}</Badge>
-                {enabled && p.payUrl && (
-                  <a
-                    href={p.payUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex h-9 items-center rounded-lg bg-brand px-4 text-sm font-medium text-brand-foreground hover:bg-brand/90"
-                  >
-                    {t.payNow}
-                  </a>
-                )}
-                {p.receiptDocumentId && (
-                  <a
-                    href={`${base}/documents/${p.receiptDocumentId}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sm text-brand underline"
-                  >
-                    {t.receipt}
-                  </a>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul className="divide-y divide-border">
+        {view.payments.map((p) => (
+          <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+            <div className="min-w-0">
+              <p className="font-medium">{p.label[locale]}</p>
+              {p.paidAt && <p className="text-xs text-muted">{t.paidOn(formatDate(p.paidAt, locale))}</p>}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Money minor={p.amountMinor} currency={p.currency} locale={locale} className="font-bold" />
+              <Badge tone={milestoneTone(p.status)}>{CLIENT_MILESTONE_STATUS[p.status][locale]}</Badge>
+              {enabled && p.payUrl && (
+                <a
+                  href={p.payUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-9 items-center rounded-lg bg-brand px-4 text-sm font-medium text-brand-foreground hover:bg-brand/90"
+                >
+                  {t.payNow}
+                </a>
+              )}
+              {p.receiptDocumentId && (
+                <a
+                  href={`${base}/documents/${p.receiptDocumentId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-brand underline"
+                >
+                  {t.receipt}
+                </a>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
     </Card>
   );
 }
@@ -521,7 +532,9 @@ function FilesCard({
             <div className="space-y-3">
               <ul className="list-inside list-disc text-sm">
                 {releasedFinals.map((d) => (
-                  <li key={d.id}>{d.title}</li>
+                  <li key={d.id}>
+                    <bdi>{d.title}</bdi>
+                  </li>
                 ))}
               </ul>
               <p className="text-sm text-muted">{t.finalsNeedCode}</p>

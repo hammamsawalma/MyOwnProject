@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { env } from "@/config/env";
 import { policy } from "@/config/policy";
 import { CLIENT_PORTAL_PREFIX } from "@/config/routes";
@@ -83,15 +83,19 @@ export async function verifyMagicLink(
   context: { ip?: string | null; now?: Date } = {},
 ): Promise<VerifyMagicLinkResult> {
   const now = context.now ?? new Date();
-  const limit = await hitRateLimit(
-    db,
-    `magic-link:ip:${context.ip ?? "unknown"}`,
-    policy.magicLink.maxVerificationsPerWindow,
-    policy.magicLink.windowSeconds,
-    now,
-  );
-  if (!limit.allowed) return { ok: false, reason: "rate_limited" };
+  // Cheap format check first: junk URLs never touch the rate-limit table.
   if (!isWellFormedMagicToken(token)) return { ok: false, reason: "malformed" };
+  // Per-IP limit only when the IP comes from a trusted proxy (see lib/request.ts).
+  if (context.ip) {
+    const limit = await hitRateLimit(
+      db,
+      `magic-link:ip:${context.ip}`,
+      policy.magicLink.maxVerificationsPerWindow,
+      policy.magicLink.windowSeconds,
+      now,
+    );
+    if (!limit.allowed) return { ok: false, reason: "rate_limited" };
+  }
 
   const [link] = await db.select().from(magicLinks).where(eq(magicLinks.tokenHash, hashMagicToken(token)));
   if (!link) return { ok: false, reason: "not_found" };
@@ -116,11 +120,21 @@ export async function revokeMagicLink(db: Db, linkId: string, now: Date = new Da
   return rows.length > 0;
 }
 
-export async function revokeProjectMagicLinks(db: Db, projectId: string, now: Date = new Date()): Promise<number> {
+export async function revokeProjectMagicLinks(
+  db: Db,
+  projectId: string,
+  options: { except?: string; now?: Date } = {},
+): Promise<number> {
   const rows = await db
     .update(magicLinks)
-    .set({ revokedAt: now })
-    .where(and(eq(magicLinks.projectId, projectId), isNull(magicLinks.revokedAt)))
+    .set({ revokedAt: options.now ?? new Date() })
+    .where(
+      and(
+        eq(magicLinks.projectId, projectId),
+        isNull(magicLinks.revokedAt),
+        options.except ? ne(magicLinks.id, options.except) : undefined,
+      ),
+    )
     .returning({ id: magicLinks.id });
   return rows.length;
 }

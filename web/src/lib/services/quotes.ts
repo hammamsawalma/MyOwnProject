@@ -12,9 +12,9 @@ import {
   quoteLineItems,
   quotes,
 } from "@/db/schema";
-import { PACKAGE_TIERS, PRICING_MODELS, QUOTE_KINDS, type EventActor } from "@/lib/domain-enums";
+import { PACKAGE_TIERS, PRICING_MODELS, QUOTE_KINDS, type EventActor, type QuoteKind } from "@/lib/domain-enums";
 import { DomainError, NotFoundError } from "@/lib/errors";
-import { CURRENCIES, lineTotal, sumMinor } from "@/lib/money";
+import { CURRENCIES, lineTotal, sumMinor, type Currency } from "@/lib/money";
 import { allocateNumber, NUMBER_SERIES } from "@/lib/numbering";
 import { verifyOtp } from "@/lib/otp";
 import {
@@ -22,13 +22,14 @@ import {
   defaultPaymentPlan,
   MILESTONE_KINDS,
   MILESTONE_KIND_LABELS,
+  normalizePlan,
   type PlannedMilestone,
 } from "@/lib/payment-plan";
 import { isSideStatus } from "@/lib/project-status";
 import { assertSalesEnabled, getSalesConfig, type SalesConfig } from "@/lib/sales";
 import { getPaymentPolicy } from "@/lib/settings";
 import { issueQuoteDocumentInTx, type DocumentRow } from "./documents";
-import { addProjectEvent, getProject, transitionProject } from "./projects";
+import { addProjectEvent, getProject, transitionProject, type ProjectRow } from "./projects";
 
 export type QuoteRow = typeof quotes.$inferSelect;
 export type QuoteLineItemRow = typeof quoteLineItems.$inferSelect;
@@ -85,11 +86,19 @@ async function computeDraft(db: Db, data: z.output<typeof QuoteDraftInput>) {
   const subtotalMinor = sumMinor(lines.map((l) => l.totalMinor));
   if (data.discountMinor > subtotalMinor) throw new DomainError("invalid_amount", "Discount exceeds subtotal");
   const totalMinor = subtotalMinor - data.discountMinor;
-  const plan: PlannedMilestone[] =
-    data.paymentPlan ??
-    defaultPaymentPlan(totalMinor, data.currency, await getPaymentPolicy(db), data.kind === "addon" ? "addon" : "project");
+  const planType = data.kind === "addon" ? "addon" : "project";
+  const plan: PlannedMilestone[] = data.paymentPlan
+    ? normalizePlan(data.paymentPlan, planType)
+    : defaultPaymentPlan(totalMinor, data.currency, await getPaymentPolicy(db), planType);
   assertPlanMatchesTotal(plan, totalMinor);
   return { lines, subtotalMinor, totalMinor, plan };
+}
+
+/** Add-ons are added to the project's total, so they must use the project currency. */
+function assertAddonCurrency(kind: QuoteKind, currency: Currency, project: Pick<ProjectRow, "currency">): void {
+  if (kind === "addon" && currency !== project.currency) {
+    throw new DomainError("currency_mismatch", `Add-on quotes must use the project currency (${project.currency})`);
+  }
 }
 
 function quoteValues(data: z.output<typeof QuoteDraftInput>) {
@@ -121,7 +130,8 @@ export async function createQuoteDraft(
   const data = QuoteDraftInput.parse(input);
   const now = options.now ?? new Date();
   return db.transaction(async (tx) => {
-    await getProject(tx, data.projectId, { forUpdate: true });
+    const project = await getProject(tx, data.projectId, { forUpdate: true });
+    assertAddonCurrency(data.kind, data.currency, project);
     const { lines, subtotalMinor, totalMinor, plan } = await computeDraft(tx, data);
     const [last] = await tx
       .select({ version: max(quotes.version) })
@@ -176,6 +186,7 @@ export async function updateQuoteDraft(
     if (!existing) throw new NotFoundError("quote", quoteId);
     if (existing.status !== "draft") throw new DomainError("quote_not_draft", "Only draft quotes can be edited");
     if (existing.projectId !== data.projectId) throw new DomainError("invalid_input", "Quote belongs to another project");
+    assertAddonCurrency(data.kind, data.currency, await getProject(tx, data.projectId));
 
     const { lines, subtotalMinor, totalMinor, plan } = await computeDraft(tx, data);
     await tx.delete(quoteLineItems).where(eq(quoteLineItems.quoteId, quoteId));
@@ -229,7 +240,7 @@ export function validUntilDate(now: Date, days: number, timeZone: string = env()
  */
 export async function sendQuote(
   db: Db,
-  input: { quoteId: string; actor?: EventActor; now?: Date; validityDays?: number },
+  input: { quoteId: string; actor?: EventActor; now?: Date; validityDays?: number; sales?: SalesConfig },
 ): Promise<{ quote: QuoteRow; document: DocumentRow }> {
   const now = input.now ?? new Date();
   const actor = input.actor ?? "admin";
@@ -241,25 +252,35 @@ export async function sendQuote(
     const [client] = await tx.select().from(clients).where(eq(clients.id, project.clientId));
     if (!client) throw new NotFoundError("client", project.clientId);
 
+    assertAddonCurrency(draft.kind, draft.currency, project);
     if (draft.kind === "initial") {
       if (!["quote_draft", "quote_sent"].includes(project.status)) {
         throw new DomainError("invalid_project_status", `Cannot send an initial quote while project is ${project.status}`);
       }
       await retirePreviouslyAcceptedQuotes(tx, project.id);
+      // Accepting sets the project currency; every milestone must stay in one currency.
+      const other = await tx
+        .select({ id: paymentMilestones.id })
+        .from(paymentMilestones)
+        .where(and(eq(paymentMilestones.projectId, project.id), ne(paymentMilestones.currency, draft.currency)))
+        .limit(1);
+      if (other.length > 0) {
+        throw new DomainError("currency_mismatch", "The project has payment milestones in another currency");
+      }
+      // A newer initial version replaces the outstanding (not yet accepted) one.
+      // Add-on quotes are independent: each belongs to its own change request.
+      await tx
+        .update(quotes)
+        .set({ status: "superseded" })
+        .where(
+          and(
+            eq(quotes.projectId, project.id),
+            eq(quotes.kind, "initial"),
+            eq(quotes.status, "sent"),
+            ne(quotes.id, draft.id),
+          ),
+        );
     }
-
-    // A newer version replaces any outstanding (not yet accepted) quote of the same kind.
-    await tx
-      .update(quotes)
-      .set({ status: "superseded" })
-      .where(
-        and(
-          eq(quotes.projectId, project.id),
-          eq(quotes.kind, draft.kind),
-          eq(quotes.status, "sent"),
-          ne(quotes.id, draft.id),
-        ),
-      );
 
     const { ref } = await allocateNumber(tx, NUMBER_SERIES.quote, { date: now });
     const [quote] = await tx
@@ -276,7 +297,8 @@ export async function sendQuote(
       .returning();
     if (!quote) throw new Error("quote update failed");
 
-    const document = await issueQuoteDocumentInTx(tx, { quote, project, client, now });
+    const acceptanceOpen = (input.sales ?? getSalesConfig()).salesEnabled;
+    const document = await issueQuoteDocumentInTx(tx, { quote, project, client, now, acceptanceOpen });
 
     if (quote.kind === "initial" && project.status === "quote_draft") {
       await transitionProject(tx, { projectId: project.id, to: "quote_sent", actor, now });
@@ -294,6 +316,32 @@ export async function sendQuote(
     });
     return { quote, document };
   });
+}
+
+export type AcceptanceBlocker = "quote_not_open" | "quote_expired" | "invalid_project_status" | "currency_mismatch";
+
+/**
+ * Why the client cannot accept this quote right now (null = acceptable, sales
+ * aside). Shared by the portal (to show or hide the form) and acceptQuote.
+ */
+export function acceptanceBlocker(
+  quote: Pick<QuoteRow, "status" | "kind" | "validUntil" | "currency">,
+  project: Pick<ProjectRow, "status" | "currency">,
+  today: string,
+): AcceptanceBlocker | null {
+  if (quote.status !== "sent") return "quote_not_open";
+  if (quote.validUntil && quote.validUntil < today) return "quote_expired";
+  if (quote.kind === "initial" && project.status !== "quote_sent") return "invalid_project_status";
+  if (quote.kind === "addon" && (isSideStatus(project.status) || project.status === "follow_up")) {
+    return "invalid_project_status";
+  }
+  if (quote.kind === "addon" && quote.currency !== project.currency) return "currency_mismatch";
+  return null;
+}
+
+function assertAcceptable(quote: QuoteRow, project: ProjectRow, now: Date): void {
+  const blocker = acceptanceBlocker(quote, project, validUntilDate(now, 0));
+  if (blocker) throw new DomainError(blocker, `Quote cannot be accepted: ${blocker}`);
 }
 
 export interface AcceptQuoteInput {
@@ -328,7 +376,8 @@ export async function acceptQuote(db: Db, input: AcceptQuoteInput): Promise<Acce
 
   const [candidate] = await db.select().from(quotes).where(eq(quotes.id, input.quoteId));
   if (!candidate || candidate.projectId !== input.projectId) throw new NotFoundError("quote", input.quoteId);
-  if (candidate.status !== "sent") throw new DomainError("quote_not_open", `Quote is ${candidate.status}`);
+  // Checked before the code is verified, so a refusal does not use up the client's code.
+  assertAcceptable(candidate, await getProject(db, candidate.projectId), now);
 
   const otp = await verifyOtp(db, {
     projectId: input.projectId,
@@ -341,16 +390,9 @@ export async function acceptQuote(db: Db, input: AcceptQuoteInput): Promise<Acce
 
   return db.transaction(async (tx) => {
     const [quote] = await tx.select().from(quotes).where(eq(quotes.id, input.quoteId)).for("update");
-    if (!quote || quote.status !== "sent") throw new DomainError("quote_not_open", "Quote is no longer open");
-    const today = validUntilDate(now, 0);
-    if (quote.validUntil && quote.validUntil < today) throw new DomainError("quote_expired", "Quote has expired");
+    if (!quote) throw new DomainError("quote_not_open", "Quote is no longer open");
     const project = await getProject(tx, quote.projectId, { forUpdate: true });
-    if (quote.kind === "initial" && project.status !== "quote_sent") {
-      throw new DomainError("invalid_project_status", `Cannot accept the quote while project is ${project.status}`);
-    }
-    if (quote.kind === "addon" && (isSideStatus(project.status) || project.status === "follow_up")) {
-      throw new DomainError("invalid_project_status", `Cannot accept an add-on while project is ${project.status}`);
-    }
+    assertAcceptable(quote, project, now);
 
     const [accepted] = await tx
       .update(quotes)

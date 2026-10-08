@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ActionForm, SubmitButton } from "@/components/client";
 import { Checkbox, Input } from "@/components/ui";
 import type { ActionState, FormAction } from "@/lib/ui/action-state";
@@ -42,7 +42,7 @@ function CodeField({ label }: { label: string }) {
 }
 
 export interface AcceptLabels {
-  terms: string;
+  terms: ReactNode;
   waiver: string;
   sendCode: string;
   resendCode: string;

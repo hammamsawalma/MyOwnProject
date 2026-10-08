@@ -14,9 +14,16 @@ function toDate(value: Date | string): Date {
     : new Date(value);
 }
 
+// Arabic: month names ("8 أكتوبر 2026"), as on the PDFs; the numeric medium style
+// renders as an ambiguous "2026/10/08" in RTL. English: "8 Oct 2026".
+const DATE_PARTS: Record<Locale, Intl.DateTimeFormatOptions> = {
+  ar: { day: "numeric", month: "long", year: "numeric" },
+  en: { day: "numeric", month: "short", year: "numeric" },
+};
+
 export function formatDate(value: Date | string | null | undefined, locale: Locale = "ar"): string {
   if (!value) return "—";
-  return new Intl.DateTimeFormat(TAGS[locale], { dateStyle: "medium", timeZone: env().BUSINESS_TIMEZONE }).format(
+  return new Intl.DateTimeFormat(TAGS[locale], { ...DATE_PARTS[locale], timeZone: env().BUSINESS_TIMEZONE }).format(
     toDate(value),
   );
 }
@@ -24,8 +31,9 @@ export function formatDate(value: Date | string | null | undefined, locale: Loca
 export function formatDateTime(value: Date | string | null | undefined, locale: Locale = "ar"): string {
   if (!value) return "—";
   return new Intl.DateTimeFormat(TAGS[locale], {
-    dateStyle: "medium",
-    timeStyle: "short",
+    ...DATE_PARTS[locale],
+    hour: "numeric",
+    minute: "2-digit",
     timeZone: env().BUSINESS_TIMEZONE,
   }).format(toDate(value));
 }

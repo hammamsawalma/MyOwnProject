@@ -12,6 +12,7 @@ import type {
 } from "@/lib/documents/snapshots";
 import { DomainError, NotFoundError } from "@/lib/errors";
 import { allocateNumber, NUMBER_SERIES, parseDocumentNumber } from "@/lib/numbering";
+import { scheduleTotals } from "@/lib/payment-plan";
 import { htmlToPdf } from "@/lib/pdf/render";
 import { renderDocumentHtml } from "@/lib/pdf/templates";
 import { getDocumentMode } from "@/lib/settings";
@@ -47,7 +48,7 @@ export function partyFromClient(client: ClientRow): PartyBlock {
 /** Inserts the immutable quote_pdf document for a quote being sent (same transaction). */
 export async function issueQuoteDocumentInTx(
   tx: Db,
-  input: { quote: QuoteRow; project: ProjectRow; client: ClientRow; now: Date },
+  input: { quote: QuoteRow; project: ProjectRow; client: ClientRow; now: Date; acceptanceOpen: boolean },
 ): Promise<DocumentRow> {
   const { quote, project, client, now } = input;
   if (!quote.ref || !quote.termsVersion) throw new Error("quote must have a ref and terms version before issuing");
@@ -88,6 +89,7 @@ export async function issueQuoteDocumentInTx(
     totalMinor: quote.totalMinor,
     paymentPlan: quote.paymentPlan,
     termsVersion: quote.termsVersion,
+    acceptanceOpen: input.acceptanceOpen,
   };
 
   return insertDocument(tx, {
@@ -125,9 +127,18 @@ export async function issueReceiptInTx(tx: Db, input: { milestone: MilestoneRow;
     ? (await tx.select().from(quotes).where(eq(quotes.id, milestone.quoteId)))[0]
     : undefined;
 
+  // Totals of the agreed schedule in the receipt's currency: manual drafts and
+  // refunded milestones are not part of what the client owes.
   const all = await tx.select().from(paymentMilestones).where(eq(paymentMilestones.projectId, project.id));
-  const contractTotalMinor = all.reduce((acc, m) => acc + m.amountMinor, 0);
-  const paidToDateMinor = all.filter((m) => m.status === "paid").reduce((acc, m) => acc + m.amountMinor, 0);
+  const accepted = await tx
+    .select({ id: quotes.id })
+    .from(quotes)
+    .where(and(eq(quotes.projectId, project.id), eq(quotes.status, "accepted")));
+  const { contractTotalMinor, paidToDateMinor } = scheduleTotals(
+    all,
+    new Set(accepted.map((q) => q.id)),
+    milestone.currency,
+  );
 
   const { ref } = await allocateNumber(tx, NUMBER_SERIES.receipt, { date: now });
   const snapshot: ReceiptSnapshot = {

@@ -1,0 +1,1 @@
+ALTER TABLE "admin_login_attempts" ADD CONSTRAINT "admin_login_attempts_email_length_check" CHECK (char_length("admin_login_attempts"."email") <= 320);

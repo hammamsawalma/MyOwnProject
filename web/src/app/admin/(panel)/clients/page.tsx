@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ButtonLink, Card, EmptyState, Input, Ltr, PageHeader, TableWrap, buttonClass, td, th } from "@/components/ui";
 import { getDb } from "@/db/client";
+import { AR_NOUNS, arCount } from "@/lib/plural";
 import { requireAdmin } from "@/lib/auth/next-session";
 import { listClientsWithCounts } from "@/lib/services/admin-queries";
 import { formatDate } from "@/lib/ui/format";
@@ -18,7 +19,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
     <>
       <PageHeader
         title="العملاء"
-        subtitle={`${rows.length} عميل`}
+        subtitle={arCount(rows.length, AR_NOUNS.client)}
         actions={<ButtonLink href="/admin/clients/new">عميل جديد</ButtonLink>}
       />
       <Card>
@@ -47,11 +48,16 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                   <tr key={c.id} className="hover:bg-surface/60">
                     <td className={td}>
                       <Link href={`/admin/clients/${c.id}`} className="font-medium text-brand hover:underline">
-                        {c.name}
+                        <bdi>{c.name}</bdi>
                       </Link>
                       <p className="text-xs text-muted">
                         {CLIENT_TYPE_LABELS_AR[c.type]}
-                        {c.companyName && ` · ${c.companyName}`}
+                        {c.companyName && (
+                          <>
+                            {" · "}
+                            <bdi>{c.companyName}</bdi>
+                          </>
+                        )}
                       </p>
                     </td>
                     <td className={td}>{c.email ? <Ltr>{c.email}</Ltr> : <span className="text-muted">—</span>}</td>

@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, lt, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { rateLimits } from "@/db/schema";
 
@@ -32,22 +32,23 @@ export async function hitRateLimit(
     })
     .returning();
   if (!row) throw new Error("rate limit upsert returned no row");
+  // Opportunistic cleanup (no scheduler yet): now and then, when a new window starts.
+  if (row.count === 1 && Math.random() < PRUNE_PROBABILITY) await pruneRateLimits(db, now);
   return toResult(row.count, row.windowStartedAt, limit, windowSeconds);
 }
 
-/** Current state without consuming a hit. */
-export async function peekRateLimit(
-  db: Db,
-  key: string,
-  limit: number,
-  windowSeconds: number,
-  now: Date = new Date(),
-): Promise<RateLimitResult> {
-  const [row] = await db.select().from(rateLimits).where(eq(rateLimits.key, key));
-  if (!row || row.windowStartedAt.getTime() <= now.getTime() - windowSeconds * 1000) {
-    return { allowed: true, count: 0, remaining: limit, resetAt: new Date(now.getTime() + windowSeconds * 1000) };
-  }
-  return { ...toResult(row.count, row.windowStartedAt, limit, windowSeconds), allowed: row.count < limit };
+const PRUNE_PROBABILITY = 0.02;
+/** Longer than every window in use (the longest is one hour). */
+const PRUNE_AFTER_SECONDS = 86_400;
+
+/** Deletes rows whose window ended long ago. Returns how many were removed. */
+export async function pruneRateLimits(db: Db, now: Date = new Date()): Promise<number> {
+  const cutoff = new Date(now.getTime() - PRUNE_AFTER_SECONDS * 1000);
+  const rows = await db
+    .delete(rateLimits)
+    .where(lt(rateLimits.windowStartedAt, cutoff))
+    .returning({ key: rateLimits.key });
+  return rows.length;
 }
 
 export async function resetRateLimit(db: Db, key: string): Promise<void> {

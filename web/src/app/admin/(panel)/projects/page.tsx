@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ButtonLink, Card, EmptyState, Ltr, Money, PageHeader, TableWrap, cx, td, th } from "@/components/ui";
 import { getDb } from "@/db/client";
+import { AR_NOUNS, arCount } from "@/lib/plural";
 import { requireAdmin } from "@/lib/auth/next-session";
 import { isProjectStatus, MAIN_STATUSES, SIDE_STATUSES, STATUS_LABELS_AR } from "@/lib/project-status";
 import { listProjects, type ProjectListFilter } from "@/lib/services/admin-queries";
@@ -45,7 +46,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
     <>
       <PageHeader
         title="المشاريع"
-        subtitle={`${rows.length} مشروع`}
+        subtitle={arCount(rows.length, AR_NOUNS.project)}
         actions={<ButtonLink href="/admin/projects/new">مشروع جديد</ButtonLink>}
       />
       <Card>
@@ -103,7 +104,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
                   <tr key={p.id} className="hover:bg-surface/60">
                     <td className={td}>
                       <Link href={`/admin/projects/${p.id}`} className="font-medium text-brand hover:underline">
-                        {p.title}
+                        <bdi>{p.title}</bdi>
                       </Link>
                       <p className="text-xs text-muted">
                         <Ltr>{p.ref}</Ltr>

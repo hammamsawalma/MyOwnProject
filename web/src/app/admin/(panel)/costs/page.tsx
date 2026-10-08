@@ -15,6 +15,7 @@ import {
   th,
 } from "@/components/ui";
 import { getDb } from "@/db/client";
+import { AR_NOUNS, arCount } from "@/lib/plural";
 import { requireAdmin } from "@/lib/auth/next-session";
 import { COST_CATEGORIES, COST_CATEGORY_LABELS_AR } from "@/lib/domain-enums";
 import { CURRENCIES, type Currency } from "@/lib/money";
@@ -110,7 +111,7 @@ export default async function CostsPage({ searchParams }: { searchParams: Promis
             )}
           </Card>
 
-          <Card title="سجل الشهر" description={`${rows.length} قيد`}>
+          <Card title="سجل الشهر" description={arCount(rows.length, AR_NOUNS.entry)}>
             {rows.length === 0 ? (
               <EmptyState>لا قيود.</EmptyState>
             ) : (

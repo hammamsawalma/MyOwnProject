@@ -58,6 +58,11 @@ export interface QuoteSnapshot {
   totalMinor: number;
   paymentPlan: { kind: MilestoneKind; sequence: number; percent: number; amountMinor: number }[];
   termsVersion: string;
+  /**
+   * Whether the client could accept online when the quote was issued
+   * (SALES_ENABLED). Missing in older snapshots: rendered as not open.
+   */
+  acceptanceOpen?: boolean;
 }
 
 export interface ReceiptSnapshot {

@@ -56,7 +56,7 @@ export default async function NewQuotePage({
       />
       {previous && (
         <Notice className="mb-6">
-          البيانات منسوخة من آخر عرض ({previous.ref ?? "مسودة"}). إصدار النسخة الجديدة يستبدل العرض المرسل السابق.
+          البيانات منسوخة من آخر عرض (<Ltr>{previous.ref ?? "مسودة"}</Ltr>). إصدار النسخة الجديدة يستبدل العرض المرسل السابق.
         </Notice>
       )}
       <QuoteBuilder

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Card, DescriptionList, EmptyState, Ltr, Money, PageHeader, TableWrap, td, th } from "@/components/ui";
 import { getDb } from "@/db/client";
+import { AR_NOUNS, arCount } from "@/lib/plural";
 import { requireAdmin } from "@/lib/auth/next-session";
 import { listProjects } from "@/lib/services/admin-queries";
 import { getClient } from "@/lib/services/projects";
@@ -31,8 +32,8 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         back={{ href: "/admin/clients", label: "العملاء" }}
       />
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <Card title="المشاريع" description={`${projects.length} مشروع`}>
+        <div className="min-w-0 space-y-6 lg:col-span-2">
+          <Card title="المشاريع" description={arCount(projects.length, AR_NOUNS.project)}>
             {projects.length === 0 ? (
               <EmptyState>لا مشاريع لهذا العميل بعد.</EmptyState>
             ) : (
@@ -50,7 +51,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                       <tr key={p.id}>
                         <td className={td}>
                           <Link href={`/admin/projects/${p.id}`} className="font-medium text-brand hover:underline">
-                            {p.title}
+                            <bdi>{p.title}</bdi>
                           </Link>
                           <p className="text-xs text-muted">
                             <Ltr>{p.ref}</Ltr>
@@ -74,7 +75,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           </Card>
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Card title="البيانات">
             <DescriptionList
               items={[
