@@ -1,0 +1,6 @@
+# Single-package project; this file only holds pnpm settings.
+# Supply-chain guard: never resolve versions published less than 14 days ago.
+minimumReleaseAge: 20160
+onlyBuiltDependencies:
+  - esbuild
+  - unrs-resolver

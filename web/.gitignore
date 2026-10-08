@@ -1,0 +1,23 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# local database (scripts/dev-db.sh) and local file storage
+.pgdata/
+storage/
+test-results/
+
+# env files (keep .env.example)
+.env
+.env.*
+!.env.example
+
+# logs / os
+npm-debug.log*
+pnpm-debug.log*
+.DS_Store

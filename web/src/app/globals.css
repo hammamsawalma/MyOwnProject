@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+/*
+ * Theme tokens come from CSS variables set on <html> by the brand config
+ * (src/config/brand.ts), so a rebrand never touches CSS.
+ * RTL: prefer logical utilities (ms-*, me-*, ps-*, pe-*, start-*, end-*,
+ * text-start, text-end) over left/right ones; use rtl:/ltr: variants when needed.
+ */
+@theme inline {
+  --color-brand: var(--brand-primary);
+  --color-brand-foreground: var(--brand-primary-foreground);
+  --color-accent: var(--brand-accent);
+  --color-background: var(--brand-background);
+  --color-foreground: var(--brand-foreground);
+  --color-muted: var(--brand-muted);
+  --color-border: var(--brand-border);
+  --font-sans: "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
+
+body {
+  font-family: var(--font-sans);
+}
