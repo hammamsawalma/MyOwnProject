@@ -18,7 +18,7 @@ export const policy = {
   },
   magicLink: {
     /** Verification attempts allowed per IP in the window. */
-    maxVerificationsPerWindow: 60,
+    maxVerificationsPerWindow: 120,
     windowSeconds: 600,
   },
   adminLogin: {

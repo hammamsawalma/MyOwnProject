@@ -330,3 +330,49 @@ describe("side statuses", () => {
     expect(row?.status).toBe("lost");
   });
 });
+
+describe("quote renegotiation", () => {
+  it("replaces an accepted-but-unpaid quote without duplicating milestones", async () => {
+    const c = await createClient(db, { name: "Mona", email: "mona@example.com" });
+    const p = await createProject(db, { clientId: c.id, title: "Sheets automation" });
+    await move(p.id, "quote_draft");
+    const { quote: v1Draft } = await createQuoteDraft(db, draftInput(p.id));
+    const { quote: v1 } = await sendQuote(db, { quoteId: v1Draft.id });
+    await acceptWithOtp(p.id, v1.id);
+    expect(await listMilestones(db, p.id)).toHaveLength(2);
+
+    // Client asks to reduce scope before paying: back to drafting, send v2.
+    await move(p.id, "quote_draft");
+    const { quote: v2Draft } = await createQuoteDraft(db, {
+      ...draftInput(p.id),
+      lineItems: [{ description: "نسخة مختصرة", unitPriceMinor: 12_000 }],
+    });
+    const { quote: v2 } = await sendQuote(db, { quoteId: v2Draft.id });
+    expect(v2.version).toBe(2);
+    const [old] = await db.select().from(quotes).where(eq(quotes.id, v1.id));
+    expect(old?.status).toBe("superseded");
+    expect(await listMilestones(db, p.id)).toHaveLength(0);
+
+    const accepted = await acceptWithOtp(p.id, v2.id);
+    expect(accepted.milestones.map((m) => [m.kind, m.amountMinor])).toEqual([["deposit", 12_000]]);
+    expect((await getProject(db, p.id)).priceTotalMinor).toBe(12_000);
+  });
+
+  it("refuses a new initial version once payment activity exists", async () => {
+    const c = await createClient(db, { name: "Ali", email: "ali@example.com" });
+    const p = await createProject(db, { clientId: c.id, title: "Website" });
+    await move(p.id, "quote_draft");
+    const { quote: draft } = await createQuoteDraft(db, draftInput(p.id));
+    const { quote } = await sendQuote(db, { quoteId: draft.id });
+    const { milestones } = await acceptWithOtp(p.id, quote.id);
+    await sendPaymentRequest(db, {
+      milestoneId: milestones[0]!.id,
+      payUrl: "https://payoneer.example/r",
+      provider: "payoneer",
+      sales: SALES_ON,
+    });
+    await move(p.id, "quote_draft");
+    const { quote: v2 } = await createQuoteDraft(db, draftInput(p.id));
+    await expect(sendQuote(db, { quoteId: v2.id })).rejects.toMatchObject({ code: "initial_quote_has_payments" });
+  });
+});

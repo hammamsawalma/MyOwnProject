@@ -24,6 +24,7 @@ import {
   MILESTONE_KIND_LABELS,
   type PlannedMilestone,
 } from "@/lib/payment-plan";
+import { isSideStatus } from "@/lib/project-status";
 import { assertSalesEnabled, getSalesConfig, type SalesConfig } from "@/lib/sales";
 import { getPaymentPolicy } from "@/lib/settings";
 import { issueQuoteDocumentInTx, type DocumentRow } from "./documents";
@@ -192,6 +193,29 @@ export async function updateQuoteDraft(
   });
 }
 
+/**
+ * A new initial version replaces an earlier accepted one (renegotiation before
+ * any payment): its draft milestones are removed and it is marked superseded.
+ * Once money moved on it, scope changes must go through add-on quotes instead.
+ */
+async function retirePreviouslyAcceptedQuotes(tx: Db, projectId: string): Promise<void> {
+  const accepted = await tx
+    .select({ id: quotes.id })
+    .from(quotes)
+    .where(and(eq(quotes.projectId, projectId), eq(quotes.kind, "initial"), eq(quotes.status, "accepted")));
+  if (accepted.length === 0) return;
+  const ids = accepted.map((q) => q.id);
+  const linked = await tx
+    .select({ status: paymentMilestones.status })
+    .from(paymentMilestones)
+    .where(inArray(paymentMilestones.quoteId, ids));
+  if (linked.some((m) => m.status !== "draft")) {
+    throw new DomainError("initial_quote_has_payments", "The accepted quote already has payment activity; use an add-on quote");
+  }
+  await tx.delete(paymentMilestones).where(inArray(paymentMilestones.quoteId, ids));
+  await tx.update(quotes).set({ status: "superseded" }).where(inArray(quotes.id, ids));
+}
+
 /** Date `days` after `now`, as YYYY-MM-DD in the business time zone. */
 export function validUntilDate(now: Date, days: number, timeZone: string = env().BUSINESS_TIMEZONE): string {
   const target = new Date(now.getTime() + days * 86_400_000);
@@ -217,8 +241,11 @@ export async function sendQuote(
     const [client] = await tx.select().from(clients).where(eq(clients.id, project.clientId));
     if (!client) throw new NotFoundError("client", project.clientId);
 
-    if (draft.kind === "initial" && !["quote_draft", "quote_sent", "awaiting_deposit"].includes(project.status)) {
-      throw new DomainError("invalid_project_status", `Cannot send an initial quote while project is ${project.status}`);
+    if (draft.kind === "initial") {
+      if (!["quote_draft", "quote_sent"].includes(project.status)) {
+        throw new DomainError("invalid_project_status", `Cannot send an initial quote while project is ${project.status}`);
+      }
+      await retirePreviouslyAcceptedQuotes(tx, project.id);
     }
 
     // A newer version replaces any outstanding (not yet accepted) quote of the same kind.
@@ -318,6 +345,12 @@ export async function acceptQuote(db: Db, input: AcceptQuoteInput): Promise<Acce
     const today = validUntilDate(now, 0);
     if (quote.validUntil && quote.validUntil < today) throw new DomainError("quote_expired", "Quote has expired");
     const project = await getProject(tx, quote.projectId, { forUpdate: true });
+    if (quote.kind === "initial" && project.status !== "quote_sent") {
+      throw new DomainError("invalid_project_status", `Cannot accept the quote while project is ${project.status}`);
+    }
+    if (quote.kind === "addon" && (isSideStatus(project.status) || project.status === "follow_up")) {
+      throw new DomainError("invalid_project_status", `Cannot accept an add-on while project is ${project.status}`);
+    }
 
     const [accepted] = await tx
       .update(quotes)
@@ -398,7 +431,7 @@ export async function acceptQuote(db: Db, input: AcceptQuoteInput): Promise<Acce
       payload: { quoteId: quote.id, ref: quote.ref, termsVersion: quote.termsVersion },
       now,
     });
-    if (quote.kind === "initial" && project.status === "quote_sent") {
+    if (quote.kind === "initial") {
       await transitionProject(tx, { projectId: project.id, to: "awaiting_deposit", actor: "client", now });
     }
     return { quote: accepted, milestones };

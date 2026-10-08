@@ -71,10 +71,11 @@ describe("admin auth", () => {
 
 describe("email", () => {
   const savedNodeEnv = process.env.NODE_ENV;
-  afterEach(() => {
-    process.env.NODE_ENV = savedNodeEnv;
+  const setNodeEnv = (value: string | undefined) => {
+    (process.env as Record<string, string | undefined>).NODE_ENV = value;
     resetEnvCache();
-  });
+  };
+  afterEach(() => setNodeEnv(savedNodeEnv));
 
   it("logs to the dev outbox without an API key", async () => {
     const result = await sendEmail(db, { to: "c@example.com", subject: "مرحبا", text: "نص" });
@@ -107,8 +108,7 @@ describe("email", () => {
   });
 
   it("refuses to log emails in production without an API key", async () => {
-    process.env.NODE_ENV = "production";
-    resetEnvCache();
+    setNodeEnv("production");
     await expect(sendEmail(db, { to: "c@example.com", subject: "x", text: "y" })).rejects.toBeInstanceOf(
       EmailNotConfiguredError,
     );
