@@ -160,6 +160,8 @@ async function main() {
       console.log(`  -> ${status}`);
     }
 
+    const extraProjectIds = await seedExtraProjects(db);
+
     await createCost(db, {
       incurredOn: new Date().toISOString().slice(0, 10),
       category: "subscription",
@@ -170,21 +172,77 @@ async function main() {
       recurring: "monthly",
     });
 
+    const allProjectIds = [projectId, ...extraProjectIds];
     if (process.env.CHROMIUM_PATH) {
-      for (const doc of await listProjectDocuments(db, projectId)) {
-        const { key } = await generateDocumentPdf(db, doc.id);
-        console.log(`  PDF ${doc.ref}: storage/${key}`);
+      for (const id of allProjectIds) {
+        for (const doc of await listProjectDocuments(db, id)) {
+          const { key } = await generateDocumentPdf(db, doc.id);
+          console.log(`  PDF ${doc.ref}: storage/${key}`);
+        }
       }
       await closePdfBrowser();
     }
 
-    const link = await createMagicLink(db, { projectId });
-    const final = await getProject(db, projectId);
-    console.log(`\nDemo project ${final.ref} is now "${final.status}".`);
-    console.log(`Client tracking link (dev): ${link.url}`);
+    console.log("");
+    for (const id of allProjectIds) {
+      const link = await createMagicLink(db, { projectId: id });
+      const project = await getProject(db, id);
+      console.log(`Demo project ${project.ref} is "${project.status}". Tracking link (dev): ${link.url}`);
+    }
   } finally {
     await close();
   }
+}
+
+/** Two more demo projects: an EUR custom quote awaiting the client (30/40/30) and a fresh lead. */
+async function seedExtraProjects(db: ReturnType<typeof createDb>["db"]): Promise<string[]> {
+  const lena = await createClient(db, {
+    name: "Lena Fischer",
+    type: "company",
+    companyName: "Fischer Handel GmbH",
+    email: "lena.demo@example.com",
+    country: "DE",
+    language: "en",
+    source: "seed",
+  });
+  const sheets = await createProject(db, {
+    clientId: lena.id,
+    title: "أتمتة تقارير المبيعات في Google Sheets",
+    serviceKey: "sheets-automation",
+    currency: "EUR",
+    source: "seed",
+  });
+  await transitionProject(db, { projectId: sheets.id, to: "discovery", actor: "admin" });
+  await transitionProject(db, { projectId: sheets.id, to: "quote_draft", actor: "admin" });
+  const { quote } = await createQuoteDraft(db, {
+    projectId: sheets.id,
+    currency: "EUR",
+    title: "أتمتة تقارير المبيعات الأسبوعية",
+    summary: "تجميع بيانات المبيعات من المتجر والفواتير في Google Sheets تلقائيًا، وإرسال تقرير أسبوعي بالبريد.",
+    scopeIncluded: ["ربط المتجر الإلكتروني ونظام الفواتير", "لوحة تقارير في Google Sheets", "تقرير أسبوعي آلي بالبريد"],
+    scopeExcluded: ["اشتراكات الأدوات الخارجية", "إدخال البيانات التاريخية قبل 2026"],
+    assumptions: ["صلاحيات قراءة لحساب المتجر والفواتير"],
+    acceptanceCriteria: ["التقرير يطابق أرقام المتجر لأسبوعين متتاليين"],
+    timeline: "3 أسابيع من استلام الصلاحيات",
+    revisionsIncluded: 2,
+    warrantyDays: 30,
+    lineItems: [
+      { description: "تحليل المصادر وتصميم التقرير", unitPriceMinor: 60_000 },
+      { description: "بناء الأتمتة والربط", unitPriceMinor: 140_000 },
+      { description: "اختبار وتسليم مع جلسة شرح", unitPriceMinor: 40_000 },
+    ],
+  });
+  await sendQuote(db, { quoteId: quote.id });
+  console.log("  -> extra project with an EUR quote awaiting the client");
+
+  const lead = await createProject(db, {
+    clientId: (await createClient(db, { name: "خالد", email: "khaled.demo@example.com", country: "AE", source: "seed" })).id,
+    title: "بوت حجز مواعيد لعيادة أسنان",
+    serviceKey: "whatsapp-ai-receptionist",
+    source: "seed",
+  });
+  console.log("  -> extra lead");
+  return [sheets.id, lead.id];
 }
 
 async function payNext(db: ReturnType<typeof createDb>["db"], projectId: string) {

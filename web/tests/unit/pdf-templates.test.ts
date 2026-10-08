@@ -69,7 +69,7 @@ describe("document templates", () => {
     expect(html).toContain('<html lang="ar" dir="rtl">');
     expect(html).toContain("إيصال دفع");
     expect(html).toContain(NOT_TAX_INVOICE_AR);
-    expect(html).toContain('<bdi dir="ltr">R-2026-0001</bdi>');
+    expect(html).toContain('<bdi dir="ltr" class="nw">R-2026-0001</bdi>');
     expect(html).toContain("400.00");
     expect(html).toContain("@font-face");
   });
@@ -90,5 +90,29 @@ describe("document templates", () => {
     expect(html).toContain("جدول الدفع");
     expect(html).toContain("800.00");
     expect(html).not.toContain(NOT_TAX_INVOICE_AR);
+  });
+
+  it("follows report 09 §4.11: numbered scope, client country name, next step with terms and waiver", () => {
+    const html = renderQuoteHtml(quote);
+    expect(html).toMatch(/<h2>النطاق: يشمل<\/h2><ol>/);
+    expect(html).toContain("السعودية");
+    expect(html).not.toContain(">SA<");
+    expect(html).toContain("الخطوة التالية");
+    expect(html).toContain("التنازل عن حق العدول");
+    expect(html).toContain('<bdi dir="ltr" class="nw">draft-2026-10</bdi>');
+  });
+
+  it("follows report 09 §4.12: currency, paid and remaining, payment method and notes", () => {
+    const html = renderReceiptHtml(receipt);
+    expect(html).toContain("العملة");
+    expect(html).toContain('<bdi dir="ltr" class="nw">USD</bdi>');
+    expect(html).toContain("المدفوع حتى الآن");
+    expect(html).toContain("المتبقي");
+    expect(html).toContain("PO-123");
+    expect(html).toContain("ملاحظات");
+    expect(html).toContain("الدفعة رقم");
+
+    const settled = renderReceiptHtml({ ...receipt, paidToDateMinor: 80_000, remainingMinor: 0 });
+    expect(settled).toContain("تم سداد قيمة الاتفاق كاملة");
   });
 });

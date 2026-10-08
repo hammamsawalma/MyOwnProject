@@ -17,6 +17,19 @@
   --font-sans: "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Neutral and status colors (not part of the brand). */
+@theme {
+  --color-surface: #f5f7fa;
+  --color-success: #15803d;
+  --color-success-soft: #dcfce7;
+  --color-warning: #a16207;
+  --color-warning-soft: #fef3c7;
+  --color-danger: #b91c1c;
+  --color-danger-soft: #fee2e2;
+  --color-info: #1d4ed8;
+  --color-info-soft: #dbeafe;
+}
+
 html {
   background: var(--color-background);
   color: var(--color-foreground);
@@ -24,4 +37,10 @@ html {
 
 body {
   font-family: var(--font-sans);
+}
+
+/* Latin fragments (refs, amounts, emails) inside Arabic text keep their own direction. */
+.ltr-nums {
+  direction: ltr;
+  unicode-bidi: isolate;
 }

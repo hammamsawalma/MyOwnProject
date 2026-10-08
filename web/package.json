@@ -23,7 +23,8 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:reset": "bash scripts/dev-db.sh reset && pnpm db:migrate && pnpm db:seed",
-    "hash-password": "tsx scripts/hash-password.ts"
+    "hash-password": "tsx scripts/hash-password.ts",
+    "portal-link": "tsx scripts/portal-link.ts"
   },
   "dependencies": {
     "@fontsource/ibm-plex-sans-arabic": "5.3.0",

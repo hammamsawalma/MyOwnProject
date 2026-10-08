@@ -18,7 +18,14 @@ const privatePageHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Do not let `next dev` write AGENTS.md/CLAUDE.md into the repo (agent docs live in README).
+  agentRules: false,
   serverExternalPackages: ["playwright-core", "@node-rs/argon2"],
+  experimental: {
+    // Deliverable and payment-evidence uploads go through admin server actions.
+    // Larger files should be shared as external links.
+    serverActions: { bodySizeLimit: "25mb" },
+  },
   async headers() {
     return [
       { source: "/:path*", headers: baseSecurityHeaders },

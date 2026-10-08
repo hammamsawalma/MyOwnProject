@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Db } from "@/db/client";
 import { changeRequests, clients, paymentMilestones, projectEvents, projects, quotes } from "@/db/schema";
 import { CLIENT_TYPES, LANGUAGES, PACKAGE_TIERS, PRICING_MODELS, type EventActor } from "@/lib/domain-enums";
-import { NotFoundError } from "@/lib/errors";
+import { DomainError, NotFoundError } from "@/lib/errors";
 import { CURRENCIES } from "@/lib/money";
 import { allocateNumber, NUMBER_SERIES } from "@/lib/numbering";
 import { canReleaseFinalDeliverables } from "@/lib/payment-plan";
@@ -63,6 +63,33 @@ export async function createClient(db: Db, input: z.input<typeof CreateClientInp
     })
     .returning();
   if (!row) throw new Error("client insert failed");
+  return row;
+}
+
+/** Replaces the editable fields of a client (same rules as creation). */
+export async function updateClient(
+  db: Db,
+  clientId: string,
+  input: z.input<typeof CreateClientInput>,
+): Promise<ClientRow> {
+  const data = CreateClientInput.parse(input);
+  const [row] = await db
+    .update(clients)
+    .set({
+      ...data,
+      companyName: blankToNull(data.companyName),
+      email: data.email ? data.email.toLowerCase() : null,
+      phoneE164: data.phoneE164 ?? null,
+      country: data.country ?? null,
+      taxId: blankToNull(data.taxId),
+      segment: blankToNull(data.segment),
+      source: blankToNull(data.source),
+      notes: blankToNull(data.notes),
+      updatedAt: new Date(),
+    })
+    .where(eq(clients.id, clientId))
+    .returning();
+  if (!row) throw new NotFoundError("client", clientId);
   return row;
 }
 
@@ -239,6 +266,82 @@ export async function transitionProject(
 
     return { project: updated, event, clientView: after };
   });
+}
+
+/** Operational fields the admin edits directly (status changes go through transitionProject). */
+export const ProjectDetailsInput = z.object({
+  title: z.string().trim().min(1),
+  serviceKey: z.string().nullish(),
+  dueAt: z.date().nullish(),
+  assignedMachine: z.string().nullish(),
+  assignedPerson: z.string().nullish(),
+});
+
+export async function updateProjectDetails(
+  db: Db,
+  projectId: string,
+  input: z.input<typeof ProjectDetailsInput>,
+): Promise<ProjectRow> {
+  const data = ProjectDetailsInput.parse(input);
+  const [row] = await db
+    .update(projects)
+    .set({
+      title: data.title,
+      serviceKey: blankToNull(data.serviceKey),
+      dueAt: data.dueAt ?? null,
+      assignedMachine: blankToNull(data.assignedMachine),
+      assignedPerson: blankToNull(data.assignedPerson),
+      updatedAt: new Date(),
+    })
+    .where(eq(projects.id, projectId))
+    .returning();
+  if (!row) throw new NotFoundError("project", projectId);
+  return row;
+}
+
+/** The admin's "visible to client" toggle on a timeline event. */
+export async function setEventVisibility(
+  db: Db,
+  input: { projectId: string; eventId: string; visible: boolean },
+): Promise<ProjectEventRow> {
+  const [row] = await db
+    .update(projectEvents)
+    .set({ visibleToClient: input.visible })
+    .where(and(eq(projectEvents.id, input.eventId), eq(projectEvents.projectId, input.projectId)))
+    .returning();
+  if (!row) throw new NotFoundError("project event", input.eventId);
+  return row;
+}
+
+/**
+ * A manual timeline entry: either a message for the client (type
+ * "client_update", text shown on the tracking page) or an internal note
+ * (type "note", stored in `note`, never shown to the client).
+ */
+export async function addManualEvent(
+  db: Db,
+  input: { projectId: string; text: string; visibleToClient: boolean; now?: Date },
+): Promise<ProjectEventRow> {
+  const text = input.text.trim();
+  if (!text) throw new DomainError("invalid_input", "Text is required");
+  await getProject(db, input.projectId);
+  return input.visibleToClient
+    ? addProjectEvent(db, {
+        projectId: input.projectId,
+        type: "client_update",
+        actor: "admin",
+        visibleToClient: true,
+        payload: { text },
+        now: input.now,
+      })
+    : addProjectEvent(db, {
+        projectId: input.projectId,
+        type: "note",
+        actor: "admin",
+        visibleToClient: false,
+        note: text,
+        now: input.now,
+      });
 }
 
 export async function listProjectEvents(db: Db, projectId: string, options: { clientOnly?: boolean } = {}) {

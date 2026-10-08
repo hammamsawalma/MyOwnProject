@@ -1,8 +1,9 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { brand, whatsappUrl } from "@/config/brand";
+import { ltr } from "@/lib/bidi";
 import type { Db } from "@/db/client";
 import { clients, deliverables, documents, paymentMilestones, projectEvents, quoteLineItems, quotes } from "@/db/schema";
-import type { OtpPurpose } from "@/lib/domain-enums";
+import type { OtpPurpose, QuoteStatus } from "@/lib/domain-enums";
 import { sendEmail } from "@/lib/email/send";
 import { otpEmail, portalLinkEmail } from "@/lib/email/templates";
 import { DomainError, NotFoundError } from "@/lib/errors";
@@ -37,7 +38,7 @@ export interface ClientPortalView {
     id: string;
     ref: string;
     version: number;
-    status: string;
+    status: QuoteStatus;
     title: string;
     summary: string | null;
     currency: Currency;
@@ -47,6 +48,11 @@ export interface ClientPortalView {
     validUntil: string | null;
     scopeIncluded: string[];
     scopeExcluded: string[];
+    assumptions: string[];
+    acceptanceCriteria: string[];
+    timeline: string | null;
+    thirdPartyCosts: string | null;
+    termsVersion: string | null;
     revisionsIncluded: number;
     warrantyDays: number;
     lines: { description: string; quantity: number; unitPriceMinor: number; totalMinor: number }[];
@@ -66,14 +72,29 @@ export interface ClientPortalView {
     receiptDocumentId: string | null;
   }[];
   paymentPolicy: ClientPaymentPolicy;
-  deliverables: { id: string; kind: "preview" | "final"; title: string; released: boolean; externalUrl: string | null }[];
+  deliverables: {
+    id: string;
+    kind: "preview" | "final";
+    title: string;
+    released: boolean;
+    hasFile: boolean;
+    externalUrl: string | null;
+  }[];
   contact: { email: string; whatsappUrl: string | null };
 }
 
-function timelineMessage(
-  event: typeof projectEvents.$inferSelect,
-  sideFromAtEvent: ProjectStatus | null,
-): Localized | null {
+type EventForMessage = Pick<typeof projectEvents.$inferSelect, "type" | "toStatus" | "fromStatus" | "payload">;
+
+/**
+ * The text the client sees for a timeline event, or null when the event type
+ * has no client-facing wording (it then never appears on the tracking page,
+ * even if marked visible). Also used by the admin timeline as a preview.
+ */
+export function clientTimelineMessage(event: EventForMessage): Localized | null {
+  return timelineMessage(event, event.fromStatus);
+}
+
+function timelineMessage(event: EventForMessage, sideFromAtEvent: ProjectStatus | null): Localized | null {
   const p = event.payload as Record<string, unknown>;
   switch (event.type) {
     case "project_created":
@@ -87,9 +108,9 @@ function timelineMessage(
       return { ar: `انتقل المشروع إلى: ${v.stageLabel.ar}`, en: `Project moved to: ${v.stageLabel.en}` };
     }
     case "quote_sent":
-      return { ar: `أرسلنا عرض السعر ${String(p.ref ?? "")}.`, en: `Quote ${String(p.ref ?? "")} was sent.` };
+      return { ar: `أرسلنا عرض السعر ${ltr(String(p.ref ?? ""))}.`, en: `Quote ${String(p.ref ?? "")} was sent.` };
     case "quote_accepted":
-      return { ar: `تم قبول عرض السعر ${String(p.ref ?? "")}.`, en: `Quote ${String(p.ref ?? "")} was accepted.` };
+      return { ar: `تم قبول عرض السعر ${ltr(String(p.ref ?? ""))}.`, en: `Quote ${String(p.ref ?? "")} was accepted.` };
     case "payment_requested":
       return { ar: "أُرسل طلب دفعة.", en: "A payment request was sent." };
     case "payment_recorded": {
@@ -97,12 +118,20 @@ function timelineMessage(
         return { ar: "استلمنا دفعة.", en: "Payment received." };
       }
       return {
-        ar: `استلمنا دفعة بقيمة ${formatMoney(p.amountMinor, p.currency, "ar")}.`,
+        ar: `استلمنا دفعة بقيمة ${ltr(formatMoney(p.amountMinor, p.currency, "ar"))}.`,
         en: `Payment received: ${formatMoney(p.amountMinor, p.currency, "en")}.`,
       };
     }
     case "change_request_created":
       return { ar: "سجّلنا طلب إضافة.", en: "A change request was logged." };
+    case "client_update": {
+      const text = typeof p.text === "string" ? p.text.trim() : "";
+      return text ? { ar: text, en: text } : null;
+    }
+    case "deliverable_added": {
+      if (p.kind !== "preview" || typeof p.title !== "string") return null;
+      return { ar: `أضفنا معاينة جديدة: ${p.title}`, en: `New preview available: ${p.title}` };
+    }
     default:
       return null;
   }
@@ -135,7 +164,7 @@ export async function getClientPortalView(
     .where(and(eq(projectEvents.projectId, projectId), eq(projectEvents.visibleToClient, true)))
     .orderBy(projectEvents.seq);
   const timeline = events
-    .map((event) => ({ at: event.createdAt.toISOString(), message: timelineMessage(event, event.fromStatus) }))
+    .map((event) => ({ at: event.createdAt.toISOString(), message: clientTimelineMessage(event) }))
     .filter((t): t is { at: string; message: Localized } => t.message !== null);
 
   const issued = await db
@@ -165,6 +194,11 @@ export async function getClientPortalView(
       validUntil: q.validUntil,
       scopeIncluded: q.scopeIncluded,
       scopeExcluded: q.scopeExcluded,
+      assumptions: q.assumptions,
+      acceptanceCriteria: q.acceptanceCriteria,
+      timeline: q.timeline,
+      thirdPartyCosts: q.thirdPartyCosts,
+      termsVersion: q.termsVersion,
       revisionsIncluded: q.revisionsIncluded,
       warrantyDays: q.warrantyDays,
       lines: lines.map((l) => ({
@@ -184,7 +218,13 @@ export async function getClientPortalView(
     .from(paymentMilestones)
     .where(eq(paymentMilestones.projectId, projectId))
     .orderBy(paymentMilestones.sequence);
-  const payments = milestones.map((m) => {
+  // Drafts the admin is still preparing stay hidden; drafts created from an
+  // accepted quote are the agreed schedule and are shown.
+  const acceptedQuoteIds = new Set(issued.filter((q) => q.status === "accepted").map((q) => q.id));
+  const visibleMilestones = milestones.filter(
+    (m) => m.status !== "draft" || (m.quoteId !== null && acceptedQuoteIds.has(m.quoteId)),
+  );
+  const payments = visibleMilestones.map((m) => {
     const safe = redactPaymentLink(m, sales);
     return {
       id: m.id,
@@ -220,6 +260,7 @@ export async function getClientPortalView(
       kind: f.kind,
       title: f.title,
       released: f.released,
+      hasFile: f.fileKey !== null,
       externalUrl: f.released ? f.externalUrl : null,
     })),
     contact: { email: brand.contact.email, whatsappUrl: whatsappUrl() },
@@ -255,7 +296,9 @@ export async function sendPortalLink(db: Db, input: { projectId: string; ttlDays
   const [client] = await db.select().from(clients).where(eq(clients.id, project.clientId));
   if (!client?.email) throw new DomainError("client_email_missing", "The client has no email address on file");
   const link = await createMagicLink(db, { projectId: project.id, ttlDays: input.ttlDays, revokeExisting: true });
-  const email = portalLinkEmail({ locale: client.language, url: link.url, projectTitle: project.title });
+  // The tracking page defaults to Arabic; English-speaking clients get the English view.
+  const url = client.language === "en" ? `${link.url}?lang=en` : link.url;
+  const email = portalLinkEmail({ locale: client.language, url, projectTitle: project.title });
   await sendEmail(db, { to: client.email, ...email, tag: "portal_link", projectId: project.id });
   return link;
 }

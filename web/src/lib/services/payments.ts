@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { and, eq, inArray, max } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "@/db/client";
@@ -7,6 +8,7 @@ import { DomainError, NotFoundError } from "@/lib/errors";
 import { CURRENCIES } from "@/lib/money";
 import { canReleaseFinalDeliverables, MILESTONE_KINDS, MILESTONE_KIND_LABELS } from "@/lib/payment-plan";
 import { assertSalesEnabled, getSalesConfig, type SalesConfig } from "@/lib/sales";
+import { makeStorageKey, putObject } from "@/lib/storage";
 import { issueReceiptInTx, type DocumentRow } from "./documents";
 import { addProjectEvent, getProject, transitionProject } from "./projects";
 
@@ -199,6 +201,17 @@ export async function markMilestone(
     });
     return row;
   });
+}
+
+/** Stores a proof-of-payment file and returns its storage key (for recordPayment's evidenceKey). */
+export async function storePaymentEvidence(
+  projectId: string,
+  file: { data: Uint8Array; fileName: string },
+): Promise<string> {
+  const safeName = file.fileName.replace(/[^A-Za-z0-9._-]+/g, "_").slice(-100) || "evidence";
+  const key = makeStorageKey("evidence", projectId, `${randomUUID()}-${safeName}`);
+  await putObject(key, file.data);
+  return key;
 }
 
 export async function listMilestones(db: Db, projectId: string): Promise<MilestoneRow[]> {

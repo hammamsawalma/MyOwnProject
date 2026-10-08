@@ -30,8 +30,18 @@ export function escapeHtml(value: string): string {
 }
 
 const e = escapeHtml;
-const ltr = (value: string) => `<bdi dir="ltr">${e(value)}</bdi>`;
+const ltr = (value: string) => `<bdi dir="ltr" class="nw">${e(value)}</bdi>`;
 const money = (minor: number, currency: Currency) => ltr(formatMoney(minor, currency, "ar"));
+
+/** "SA" -> "السعودية"; values that are not ISO codes (e.g. the issuer's "تركيا") pass through. */
+function countryLabel(value: string): string {
+  if (!/^[A-Z]{2}$/.test(value)) return value;
+  try {
+    return new Intl.DisplayNames(["ar"], { type: "region" }).of(value) ?? value;
+  } catch {
+    return value;
+  }
+}
 
 function formatDate(iso: string): string {
   const date = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T12:00:00Z`) : new Date(iso);
@@ -54,7 +64,9 @@ header { display: flex; justify-content: space-between; align-items: flex-start;
 .badge { display: inline-block; margin-top: 4px; padding: 2px 10px; border: 1.5px solid #B91C1C; color: #B91C1C; border-radius: 4px; font-weight: 700; font-size: 10pt; }
 .meta { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
 .meta td { padding: 3px 0; vertical-align: top; }
-.meta .label { color: ${brand.colors.muted}; width: 22%; }
+.meta .label { color: ${brand.colors.muted}; width: 16%; white-space: nowrap; }
+.nw { white-space: nowrap; }
+.next { border: 1px solid ${brand.colors.border}; border-radius: 6px; padding: 8px 10px; background: #F8FAFC; }
 .parties { display: flex; gap: 16px; margin-bottom: 14px; }
 .party { flex: 1; border: 1px solid ${brand.colors.border}; border-radius: 6px; padding: 8px 10px; }
 .party h3 { margin: 0 0 4px; font-size: 10pt; color: ${brand.colors.muted}; }
@@ -94,7 +106,7 @@ function partyBlock(title: string, party: PartyBlock): string {
   const lines = [
     `<strong>${e(party.companyName ?? party.name)}</strong>`,
     party.companyName ? e(party.name) : null,
-    party.country ? e(party.country) : null,
+    party.country ? e(countryLabel(party.country)) : null,
     party.email ? ltr(party.email) : null,
     party.phone ? ltr(party.phone) : null,
     party.taxId ? `الرقم الضريبي: ${ltr(party.taxId)}` : null,
@@ -113,8 +125,10 @@ function issuerParty(s: DocumentSnapshot): PartyBlock {
   };
 }
 
-function list(items: string[]): string {
-  return items.length ? `<ul>${items.map((i) => `<li>${e(i)}</li>`).join("")}</ul>` : `<p class="note">—</p>`;
+function list(items: string[], ordered = false): string {
+  if (!items.length) return `<p class="note">—</p>`;
+  const tag = ordered ? "ol" : "ul";
+  return `<${tag}>${items.map((i) => `<li>${e(i)}</li>`).join("")}</${tag}>`;
 }
 
 function footer(s: DocumentSnapshot): string {
@@ -138,14 +152,14 @@ export function renderQuoteHtml(s: QuoteSnapshot): string {
   const body = `${header("عرض سعر", "Quotation", false)}
 <table class="meta">
   <tr><td class="label">رقم العرض</td><td>${ltr(s.ref)} <span class="note">(الإصدار ${ltr(String(s.version))})</span></td>
-      <td class="label">التاريخ</td><td>${e(formatDate(s.issuedAt))}</td></tr>
+      <td class="label">التاريخ</td><td class="nw">${e(formatDate(s.issuedAt))}</td></tr>
   <tr><td class="label">المشروع</td><td>${e(s.project.title)} <span class="note">${ltr(s.project.ref)}</span></td>
-      <td class="label">صالح حتى</td><td>${s.validUntil ? e(formatDate(s.validUntil)) : "—"}</td></tr>
+      <td class="label">صالح حتى</td><td class="nw">${s.validUntil ? e(formatDate(s.validUntil)) : "—"}</td></tr>
 </table>
 <div class="parties">${partyBlock("من", issuerParty(s))}${partyBlock("إلى", s.client)}</div>
 <h2>${e(s.title)}</h2>
 ${s.summary ? `<p>${e(s.summary)}</p>` : ""}
-<h2>النطاق: يشمل</h2>${list(s.scopeIncluded)}
+<h2>النطاق: يشمل</h2>${list(s.scopeIncluded, true)}
 <h2>النطاق: لا يشمل</h2>${list(s.scopeExcluded)}
 ${s.assumptions.length ? `<h2>الافتراضات والمطلوب من العميل</h2>${list(s.assumptions)}` : ""}
 ${s.acceptanceCriteria.length ? `<h2>معايير القبول</h2>${list(s.acceptanceCriteria)}` : ""}
@@ -165,7 +179,11 @@ ${s.timeline ? `<h2>الجدول الزمني</h2><p>${e(s.timeline)}</p>` : ""}
 <h2>المراجعات والضمان</h2>
 <p>جولات المراجعة المشمولة: ${ltr(String(s.revisionsIncluded))} · مدة الضمان: ${ltr(String(s.warrantyDays))} يومًا</p>
 ${s.thirdPartyCosts ? `<h2>تكاليف الطرف الثالث</h2><p>${e(s.thirdPartyCosts)}</p>` : ""}
-<p class="note">قبول هذا العرض يتم عبر صفحة المشروع، ويعني الموافقة على الشروط (الإصدار ${ltr(s.termsVersion)}).</p>
+<h2>الخطوة التالية</h2>
+<div class="next">
+  <p style="margin:0">يتم قبول العرض من صفحة متابعة المشروع (الرابط الخاص المرسل إليك) قبل ${s.validUntil ? e(formatDate(s.validUntil)) : "انتهاء صلاحيته"}: بالموافقة على الشروط (نسخة ${ltr(s.termsVersion)})، وتأكيد طلب البدء فورًا والتنازل عن حق العدول، ثم رمز تحقق يصل إلى بريدك.</p>
+  <p class="note" style="margin:4px 0 0">يبدأ العمل بعد استلام الدفعة الأولى حسب جدول الدفع أعلاه.</p>
+</div>
 ${footer(s)}`;
   return page(`عرض سعر ${s.ref}`, body);
 }
@@ -173,13 +191,14 @@ ${footer(s)}`;
 export function renderReceiptHtml(s: ReceiptSnapshot): string {
   const body = `${header("إيصال دفع", "Payment Receipt", true)}
 <table class="meta">
-  <tr><td class="label">رقم الإيصال</td><td>${ltr(s.ref)}</td><td class="label">تاريخ الإصدار</td><td>${e(formatDate(s.issuedAt))}</td></tr>
+  <tr><td class="label">رقم الإيصال</td><td>${ltr(s.ref)}</td><td class="label">تاريخ الإصدار</td><td class="nw">${e(formatDate(s.issuedAt))}</td></tr>
   <tr><td class="label">المشروع</td><td>${e(s.project.title)} <span class="note">${ltr(s.project.ref)}</span></td>
       <td class="label">عرض السعر</td><td>${s.quoteRef ? ltr(s.quoteRef) : "—"}</td></tr>
+  <tr><td class="label">العملة</td><td>${ltr(s.currency)}</td><td class="label">نوع المستند</td><td class="nw">إيصال دفع</td></tr>
 </table>
 <div class="parties">${partyBlock("المُصدِر", issuerParty(s))}${partyBlock("العميل", s.client)}</div>
 <table class="items"><thead><tr><th>البيان</th><th class="num">المبلغ</th></tr></thead>
-<tbody><tr><td>${e(s.milestone.label ?? MILESTONE_KIND_LABELS[s.milestone.kind].ar)}</td><td class="num">${money(s.amountMinor, s.currency)}</td></tr></tbody></table>
+<tbody><tr><td>${e(s.milestone.label ?? MILESTONE_KIND_LABELS[s.milestone.kind].ar)} <span class="note">(الدفعة رقم ${ltr(String(s.milestone.sequence))}${s.quoteRef ? ` من عرض السعر ${ltr(s.quoteRef)}` : ""})</span></td><td class="num">${money(s.amountMinor, s.currency)}</td></tr></tbody></table>
 <table class="totals">
   <tr class="grand"><td>المبلغ المستلم</td><td class="num">${money(s.amountMinor, s.currency)}</td></tr>
   <tr><td>قيمة الاتفاق</td><td class="num">${money(s.contractTotalMinor, s.currency)}</td></tr>
@@ -187,12 +206,18 @@ export function renderReceiptHtml(s: ReceiptSnapshot): string {
   <tr><td>المتبقي</td><td class="num">${money(s.remainingMinor, s.currency)}</td></tr>
 </table>
 <table class="meta">
-  <tr><td class="label">تاريخ الدفع</td><td>${e(formatDate(s.paidAt))}</td></tr>
+  <tr><td class="label">تاريخ الدفع</td><td class="nw">${e(formatDate(s.paidAt))}</td></tr>
   <tr><td class="label">وسيلة الدفع</td><td>${s.paymentMethod ? ltr(s.paymentMethod) : "—"}</td></tr>
   <tr><td class="label">مرجع المعاملة</td><td>${s.providerRef ? ltr(s.providerRef) : "—"}</td></tr>
   <tr><td class="label">الضرائب</td><td>${NOT_TAX_INVOICE_AR}</td></tr>
 </table>
-<p class="note">هذا إيصال باستلام دفعة، وليس فاتورة ضريبية.</p>
+<h2>ملاحظات</h2>
+<p>${
+    s.remainingMinor > 0
+      ? `المتبقي ${money(s.remainingMinor, s.currency)} يُسدَّد حسب جدول الدفع المتفق عليه، وتُسلَّم الملفات النهائية بعد سداد آخر دفعة.`
+      : "تم سداد قيمة الاتفاق كاملة. شكرًا لثقتك."
+  }</p>
+<p class="note">هذا إيصال باستلام دفعة، وليس فاتورة ضريبية. المبالغ تشمل رسوم الدفع.</p>
 ${footer(s)}`;
   return page(`إيصال دفع ${s.ref}`, body);
 }
