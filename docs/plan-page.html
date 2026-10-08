@@ -1,0 +1,849 @@
+<title>خطة استوديو الخدمات التقنية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Reem+Kufi:wght@500;600;700&display=swap">
+<style>
+/* Layout: a single-column engineering dossier. Sticky section index on top; each section is a numbered sheet; decisions carry their real IDs (ق1…ق39). */
+:root {
+  --bg: #f3f5f4;
+  --surface: #ffffff;
+  --surface-2: #f8faf9;
+  --ink: #13211f;
+  --ink-2: #44544f;
+  --muted: #74847f;
+  --line: #dbe2df;
+  --accent: #0d675c;
+  --accent-ink: #ffffff;
+  --accent-soft: #e0efeb;
+  --bar: #0d675c;
+  --bar-track: #e6ecea;
+  --pending: #8a5a08;
+  --pending-bg: #fbf0dc;
+  --ok: #276b2b;
+  --ok-bg: #e3f1e3;
+  --risk: #a8342b;
+  --risk-bg: #fae6e3;
+  --hold: #5b6663;
+  --hold-bg: #eaeeed;
+  --f-display: "Reem Kufi", "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+  --f-body: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1413; --surface: #141d1b; --surface-2: #18221f; --ink: #e2eae7; --ink-2: #aab9b4; --muted: #7d8f8a; --line: #26322f;
+    --accent: #4cbba8; --accent-ink: #0b1513; --accent-soft: #15302b; --bar: #4cbba8; --bar-track: #1f2b28;
+    --pending: #e3a849; --pending-bg: #2d2311; --ok: #74c378; --ok-bg: #15281a; --risk: #ee7d72; --risk-bg: #321919; --hold: #9aa7a3; --hold-bg: #1f2826;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1413; --surface: #141d1b; --surface-2: #18221f; --ink: #e2eae7; --ink-2: #aab9b4; --muted: #7d8f8a; --line: #26322f;
+  --accent: #4cbba8; --accent-ink: #0b1513; --accent-soft: #15302b; --bar: #4cbba8; --bar-track: #1f2b28;
+  --pending: #e3a849; --pending-bg: #2d2311; --ok: #74c378; --ok-bg: #15281a; --risk: #ee7d72; --risk-bg: #321919; --hold: #9aa7a3; --hold-bg: #1f2826;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.75; }
+.page { max-width: 1040px; margin-inline: auto; padding-inline: 20px; padding-block: 0 64px; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 600; line-height: 1.35; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(28px, 5vw, 40px); }
+h2 { font-size: clamp(21px, 3.2vw, 27px); }
+h3 { font-size: 17px; font-family: var(--f-body); font-weight: 700; }
+p { margin: 0; }
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.num { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--f-mono); direction: ltr; unicode-bidi: isolate; }
+
+/* Index bar */
+.index { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+.index-inner { max-width: 1040px; margin-inline: auto; padding-inline: 20px; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.index-inner::-webkit-scrollbar { display: none; }
+.index a { flex: none; text-decoration: none; color: var(--ink-2); font-size: 13.5px; padding: 11px 10px; border-bottom: 2px solid transparent; white-space: nowrap; }
+.index a:hover { color: var(--ink); border-bottom-color: var(--line); }
+
+/* Header */
+.head { padding-block: 40px 28px; display: grid; gap: 18px; }
+.eyebrow { font-size: 12.5px; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+.lede { color: var(--ink-2); max-width: 68ch; font-size: 16px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 4px 11px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--ink-2); }
+.chip b { color: var(--ink); font-weight: 600; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+
+/* Sections */
+section.sheet { margin-top: 28px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 26px 24px; display: grid; gap: 20px; scroll-margin-top: 64px; }
+.sheet-head { display: grid; gap: 6px; }
+.sec-tag { font-family: var(--f-mono); font-size: 12px; color: var(--muted); direction: ltr; text-align: end; }
+.sheet-head .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.sub { color: var(--ink-2); max-width: 70ch; }
+.note { font-size: 13px; color: var(--muted); }
+
+/* Next step / round 1 */
+.callout { background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-radius: var(--r); padding: 16px 18px; display: grid; gap: 6px; }
+.callout strong { color: var(--accent); }
+.qgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 14px; }
+.q { border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 10px; align-content: start; background: var(--surface-2); min-width: 0; }
+.q-top { display: flex; gap: 10px; align-items: baseline; }
+.qid { font-family: var(--f-display); font-weight: 700; color: var(--accent); font-size: 18px; flex: none; }
+.opts { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.opts li { display: grid; grid-template-columns: auto 1fr; gap: 8px; font-size: 14px; color: var(--ink-2); }
+.opts li::before { content: ""; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--muted); margin-top: 9px; }
+.opts li.rec { color: var(--ink); font-weight: 500; }
+.opts li.rec::before { background: var(--accent); border-color: var(--accent); }
+.rec-tag { font-size: 11.5px; color: var(--accent); font-weight: 600; margin-inline-start: 6px; white-space: nowrap; }
+.why { font-size: 13px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 8px; }
+
+/* Findings */
+.findings { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; counter-reset: f; }
+.findings li { display: grid; grid-template-columns: 34px 1fr; gap: 12px; padding-block: 13px; border-top: 1px solid var(--line); }
+.findings li:first-child { border-top: 0; }
+.findings li::before { counter-increment: f; content: counter(f); font-family: var(--f-mono); font-size: 13px; color: var(--muted); padding-top: 3px; }
+.findings b { color: var(--ink); }
+.findings p { color: var(--ink-2); }
+.src { display: inline-block; font-size: 11.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 0 6px; margin-inline-start: 4px; white-space: nowrap; }
+.flag { display: inline-block; font-size: 11.5px; border-radius: 5px; padding: 0 6px; margin-inline-start: 4px; white-space: nowrap; color: var(--pending); background: var(--pending-bg); }
+
+/* Phases */
+.phases { display: grid; gap: 0; }
+.phase { display: grid; grid-template-columns: 64px 1fr; gap: 16px; position: relative; padding-bottom: 22px; }
+.phase:last-child { padding-bottom: 0; }
+.phase::before { content: ""; position: absolute; inset-inline-start: 31px; top: 46px; bottom: 0; width: 2px; background: var(--line); }
+.phase:last-child::before { display: none; }
+.ph-n { width: 64px; height: 46px; border-radius: 8px; display: grid; place-items: center; font-family: var(--f-display); font-weight: 700; font-size: 20px; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2); position: relative; z-index: 1; }
+.phase.now .ph-n { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.ph-body { display: grid; gap: 8px; min-width: 0; }
+.ph-title { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: baseline; }
+.ph-when { font-size: 13px; color: var(--muted); }
+.ph-body ul { margin: 0; padding-inline-start: 18px; color: var(--ink-2); display: grid; gap: 3px; }
+.gate { font-size: 13.5px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+.gate b { color: var(--accent); }
+
+/* Pills */
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.pill.pending { color: var(--pending); background: var(--pending-bg); }
+.pill.ok { color: var(--ok); background: var(--ok-bg); }
+.pill.risk { color: var(--risk); background: var(--risk-bg); }
+.pill.hold { color: var(--hold); background: var(--hold-bg); }
+.pill.accent { color: var(--accent); background: var(--accent-soft); }
+
+/* Bars (single series, no legend; title names it) */
+.bars { display: grid; gap: 6px; }
+.bar-row { display: grid; grid-template-columns: minmax(130px, 32%) 1fr; gap: 12px; align-items: center; position: relative; padding-block: 3px; border-radius: 6px; }
+.bar-row:hover, .bar-row:focus-visible { background: var(--surface-2); }
+.bar-label { font-size: 14px; color: var(--ink); min-width: 0; }
+.bar-label small { display: block; font-size: 12px; color: var(--muted); line-height: 1.4; }
+.bar-track { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.bar { height: 18px; background: var(--bar); border-start-end-radius: 4px; border-end-end-radius: 4px; flex: none; }
+.bar.dim { background: color-mix(in srgb, var(--bar) 45%, var(--bar-track)); }
+.bar-val { font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.tip { position: absolute; inset-inline-end: 0; top: calc(100% + 2px); z-index: 3; background: var(--ink); color: var(--bg); font-size: 12.5px; line-height: 1.6; padding: 7px 10px; border-radius: 7px; max-width: min(360px, 90%); pointer-events: none; opacity: 0; transform: translateY(-3px); transition: opacity .12s, transform .12s; }
+.bar-row:hover .tip, .bar-row:focus-visible .tip { opacity: 1; transform: none; }
+.axis { display: grid; grid-template-columns: minmax(130px, 32%) 1fr; gap: 12px; font-size: 11.5px; color: var(--muted); }
+.axis .ticks { display: flex; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 3px; font-variant-numeric: tabular-nums; }
+
+/* Tables */
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 640px; }
+th, td { text-align: start; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12.5px; color: var(--muted); font-weight: 600; background: var(--surface-2); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td .num, td.num { font-variant-numeric: tabular-nums; }
+.yes { color: var(--ok); font-weight: 600; }
+.no { color: var(--risk); font-weight: 600; }
+.maybe { color: var(--pending); font-weight: 600; }
+
+/* Cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px; }
+.card { border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; display: grid; gap: 8px; align-content: start; background: var(--surface-2); min-width: 0; }
+.card h3 { font-size: 15.5px; }
+.card p, .card li { font-size: 14px; color: var(--ink-2); }
+.card ul { margin: 0; padding-inline-start: 18px; display: grid; gap: 3px; }
+.card .big { font-family: var(--f-display); font-size: 26px; font-weight: 700; color: var(--ink); line-height: 1.2; }
+.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 18px; }
+.split > * { min-width: 0; }
+.mini-h { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+.warnlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.warnlist li { display: grid; grid-template-columns: auto 1fr; gap: 10px; font-size: 14px; color: var(--ink-2); align-items: start; }
+.warnlist li .pill { margin-top: 3px; }
+
+/* Decision register */
+.filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.filters button { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.filters button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.reg { display: grid; gap: 8px; }
+.reg-round { font-size: 13px; color: var(--muted); font-weight: 600; margin-top: 10px; }
+.dec { display: grid; grid-template-columns: 48px 1fr auto; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); align-items: start; }
+.dec .id { font-family: var(--f-display); font-weight: 700; color: var(--accent); font-size: 16px; }
+.dec .body { display: grid; gap: 4px; min-width: 0; }
+.dec .qq { font-weight: 600; color: var(--ink); font-size: 14.5px; }
+.dec .oo { font-size: 13px; color: var(--ink-2); }
+.dec .rr { font-size: 13px; color: var(--accent); }
+.dec .rr span { color: var(--muted); }
+.lib { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 10px; }
+.lib a { display: grid; grid-template-columns: 38px 1fr; gap: 10px; text-decoration: none; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--surface-2); }
+.lib a:hover { border-color: var(--accent); }
+.lib .n { font-family: var(--f-mono); color: var(--muted); font-size: 13px; padding-top: 2px; }
+.lib small { display: block; color: var(--muted); font-size: 12.5px; }
+footer { margin-top: 28px; color: var(--muted); font-size: 13px; text-align: center; }
+
+@media (max-width: 560px) {
+  section.sheet { padding: 20px 16px; }
+  .page { padding-inline: 16px; }
+  .index-inner { padding-inline: 16px; }
+  .phase { grid-template-columns: 48px 1fr; gap: 12px; }
+  .ph-n { width: 48px; height: 40px; font-size: 17px; }
+  .phase::before { inset-inline-start: 23px; top: 40px; }
+  .dec { grid-template-columns: 40px 1fr; }
+  .dec .pill { grid-column: 2; justify-self: start; }
+  .bar-row { grid-template-columns: minmax(104px, 38%) 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .tip { transition: none; } }
+</style>
+
+<div dir="rtl" lang="ar">
+<nav class="index" aria-label="فهرس الصفحة">
+  <div class="index-inner">
+    <a href="#next">الخطوة التالية</a>
+    <a href="#findings">خلاصة البحث</a>
+    <a href="#phases">المراحل</a>
+    <a href="#markets">الأسواق</a>
+    <a href="#services">الخدمات</a>
+    <a href="#pricing">التسعير</a>
+    <a href="#legal">القانون والضرائب</a>
+    <a href="#payments">الدفع</a>
+    <a href="#brand">البراند والاسم</a>
+    <a href="#tech">النظام التقني</a>
+    <a href="#marketing">التسويق</a>
+    <a href="#costs">التكاليف</a>
+    <a href="#register">سجل القرارات</a>
+    <a href="#library">التقارير</a>
+  </div>
+</nav>
+
+<main class="page">
+  <header class="head">
+    <div class="eyebrow">مشروع جديد · الاسم لم يُحسم بعد · آخر تحديث 8 أكتوبر 2026</div>
+    <h1>خطة استوديو الخدمات التقنية</h1>
+    <p class="lede">براند عربي يقدّم كل ما يُنجز على الحاسوب، من الأتمتة والبرمجة إلى دعم الطلاب التقني وخدمات الشركات والفينتك، بسرعة الذكاء الاصطناعي ومسؤولية مهندس. هذه الصفحة تجمع نتائج 9 تقارير بحثية وتعرض الخيارات. <b>لا يوجد فيها أي قرار نهائي</b>، فكل قرار ينتظر موافقتك.</p>
+    <div class="chips">
+      <span class="chip" style="color:var(--accent)"><span class="dot"></span><b>المرحلة 0</b> الأساس والقرارات</span>
+      <span class="chip" style="color:var(--pending)"><span class="dot"></span><b class="num">39</b> قرارًا معلقًا</span>
+      <span class="chip"><b class="num">0</b> قرار محسوم</span>
+      <span class="chip"><b class="num">9</b> تقارير بحثية</span>
+      <span class="chip"><b class="num">243</b> خدمة في الكتالوج</span>
+    </div>
+  </header>
+
+  <!-- NEXT STEP -->
+  <section class="sheet" id="next">
+    <div class="sheet-head">
+      <div class="row"><h2>الخطوة التالية: الجولة الأولى من القرارات</h2><span class="sec-tag">§1</span></div>
+      <p class="sub">هذه القرارات الأربعة يتوقف عليها كل ما بعدها. أرسلتها لك أسئلةً في المحادثة؛ أجب هناك، وسأحدّث هذه الصفحة وسجل القرارات بعدها.</p>
+    </div>
+    <div class="callout">
+      <p><strong>لماذا الوضع القانوني أولًا؟</strong> كل التقارير التسعة وصلت إلى السؤال نفسه. وضعك في تركيا يحدد متى تقبض أول دولار، وبأي اسم تُفتح حسابات الإعلانات (Google وMeta تُظهران اسم المعلن)، وهل تظهر بوجهك، وأي طريق دفع متاح لك.</p>
+    </div>
+    <div class="qgrid">
+      <article class="q">
+        <div class="q-top"><span class="qid">ق1</span><h3>ما وضعك القانوني في تركيا؟</h3></div>
+        <ul class="opts">
+          <li>مواطن تركي (أبسط مسار: تسجيل ضريبي مباشر)</li>
+          <li>أجنبي بإقامة بدون إذن عمل (يلزم تسوية وضع العمل قبل قبض المال)</li>
+          <li>أجنبي بإذن عمل (مسار المواطن مع التحقق من نطاق الإذن)</li>
+          <li>سوري تحت الحماية المؤقتة (مسار تصريح خاص)</li>
+        </ul>
+        <p class="why">معلومة وليست قرارًا، لكنها تغيّر التوصيات في كل التقارير. <span class="src">تقرير 04</span></p>
+      </article>
+      <article class="q">
+        <div class="q-top"><span class="qid">ق2</span><h3>ما نموذج البراند؟</h3></div>
+        <ul class="opts">
+          <li class="rec">استوديو يقوده المؤسس (هجين): اسم مستقل وأنت وجهه وصوته<span class="rec-tag">توصية · 75.5</span></li>
+          <li>وكالة أو فريق بلا وجه (67.5)</li>
+          <li>براند شخصي باسمك (52)</li>
+        </ul>
+        <p class="why">الهجين يجمع ثقة الوجه لدى الأفراد العرب مع صورة مؤسسية للشركات، ويمكن تفويضه أو بيعه لاحقًا. <span class="src">تقرير 06</span></p>
+      </article>
+      <article class="q">
+        <div class="q-top"><span class="qid">ق3</span><h3>ما سوق البداية؟ (سوق أو سوقان كحد أقصى)</h3></div>
+        <ul class="opts">
+          <li class="rec">الخليج: السعودية أساسيًا + خلية مقارنة صغيرة للإمارات<span class="rec-tag">توصية لخدمات الأعمال</span></li>
+          <li>أصحاب الأعمال العرب في ألمانيا والنمسا (دفع باليورو، منافسة أقل بالعربية)</li>
+          <li>العرب داخل تركيا: طلاب وأصحاب أعمال (أرخص إعلانًا، لكن العميل داخل تركيا لا يستفيد من خصم 100%)</li>
+          <li>الأردن (دفع سهل، قدرة شرائية متوسطة)</li>
+        </ul>
+        <p class="why">الفروق في التقييم صغيرة (74 / 71 / 71 / 70). الحسم يأتي من اختبار مدفوع، والتوصية تتغير حسب الخدمة القائدة. <span class="src">تقارير 02، 03، 08</span></p>
+      </article>
+      <article class="q">
+        <div class="q-top"><span class="qid">ق4</span><h3>ما الخدمة القائدة في الإعلانات؟</h3></div>
+        <ul class="opts">
+          <li class="rec">أتمتة وذكاء اصطناعي للأعمال الصغيرة (بوت واتساب، n8n، Excel، لوحات)<span class="rec-tag">توصية</span></li>
+          <li>الحضور الرقمي: مواقع ومتاجر (سلة، زد، شوبيفاي)</li>
+          <li>التدريب التقني للطلاب (MATLAB، الإحصاء، المحاكاة) بصيغة تعليمية</li>
+          <li>تمكين الأفراد وكبار السن على أدوات الذكاء الاصطناعي</li>
+        </ul>
+        <p class="why">خدمات الأعمال حصلت على أعلى الدرجات (80–96)، وإعلاناتها مسموحة في Google وMeta، وتتحول إلى اشتراكات شهرية. <span class="src">تقريرا 01، 08</span></p>
+      </article>
+    </div>
+  </section>
+
+  <!-- FINDINGS -->
+  <section class="sheet" id="findings">
+    <div class="sheet-head">
+      <div class="row"><h2>ما الذي غيّره البحث في الصورة</h2><span class="sec-tag">§2</span></div>
+      <p class="sub">عشر نتائج من التقارير التسعة يجب أن تعرفها قبل أي قرار. التفاصيل والمصادر في كل تقرير.</p>
+    </div>
+    <ol class="findings">
+      <li><p><b>وضعك القانوني هو المفتاح الأول.</b> للأجنبي بلا تصريح عمل، العمل المستقل سبب للغرامة ولقرار الترحيل، ولا يوجد استثناء للعمل مع عملاء في الخارج. <span class="src">04</span></p></li>
+      <li><p><b>خصم تصدير الخدمات صار 100% منذ دخل 2026.</b> البرمجة والأتمتة وتحليل البيانات والحسابات الهندسية لعملاء خارج تركيا قد تصل ضريبتها إلى صفر، بشرط التسجيل الرسمي وتحويل الأرباح إلى تركيا. <span class="src">04</span><span class="flag" data-verify="legal">قيد التدقيق</span></p></li>
+      <li><p><b>العمل بلا تسجيل مكلف إن اكتُشف:</b> ضريبة بأثر رجعي، وغرامة تصل إلى 150% منها، وفائدة شهرية، وضياع الخصم. الكسب العرضي معفى حتى 350 ألف ليرة (نحو 7,100$) لكنه لا يصلح لنشاط معلن مستمر. <span class="src">04</span></p></li>
+      <li><p><b>الكريبتو ليس طريقًا للإعفاء الضريبي.</b> أجر الخدمة دخل خاضع مهما كانت العملة، ولائحة البنك المركزي التركي (2021) تمنع استخدام الأصول المشفرة في المدفوعات. وهو غير قانوني أو غير مرخص لعملاء السعودية والكويت وقطر. <span class="src">02، 04، 05</span></p></li>
+      <li><p><b>Stripe وPayPal وWise مغلقة أمام المقيم في تركيا.</b> أفضل خيار الآن بلا شركة هو Payoneer: يصلك نحو 92–94$ من كل 100$. وApple Pay وGoogle Pay يحتاجان كيانًا أجنبيًا، والكيان الأجنبي لا يُسقط الضريبة التركية. <span class="src">05</span><span class="flag" data-verify="payments">قيد التدقيق</span></p></li>
+      <li><p><b>سياسات الإعلان تحدد ما يمكن الإعلان عنه.</b> Google يمنع إعلانات الدعم التقني للأفراد (يسمح به للشركات فقط) ويمنع خدمات الغش الأكاديمي. وتقديم توصيات تداول بلا ترخيص جريمة في تركيا (2–5 سنوات). <span class="src">01، 08</span></p></li>
+      <li><p><b>خدمات الأعمال هي الأقوى للإطلاق:</b> أتمتة Excel (96)، والمواقع (92)، وn8n/Make (90)، وإعداد التتبع (87)، ولوحات البيانات (85). <span class="src">01</span></p></li>
+      <li><p><b>لا يوجد سوق فائز بالأرقام وحدها.</b> السعودية 74، والإمارات 71، والعرب في ألمانيا 71، والعرب داخل تركيا 70. يحسمها اختبار صغير على سوق أو سوقين لمدة 4 أسابيع. <span class="src">02، 03</span></p></li>
+      <li><p><b>القناة الأساسية المقترحة هي إعلانات Meta التي تفتح محادثة واتساب مباشرة،</b> مع نافذة رسائل مجانية. Google Search لخدمات الشركات فقط بدءًا من ميزانية 750$. <span class="src">07، 08</span></p></li>
+      <li><p><b>اشتراك Claude Max شخصي ولا يجوز أن يستخدمه فريقك.</b> وبوت واتساب يجب أن يعمل بمفتاح API لا باشتراك Max. الخبر الجيد أن Max يتضمن رصيد API شهريًا قد يغطي تكلفة البوت. <span class="src">07</span></p></li>
+    </ol>
+  </section>
+
+  <!-- PHASES -->
+  <section class="sheet" id="phases">
+    <div class="sheet-head">
+      <div class="row"><h2>المراحل المقترحة</h2><span class="sec-tag">§3</span></div>
+      <p class="sub">لكل مرحلة بوابة: لا ننتقل إلى التي بعدها قبل تحقق شروطها وموافقتك. التوقيت تقديري.</p>
+    </div>
+    <div class="phases">
+      <div class="phase now">
+        <div class="ph-n">0</div>
+        <div class="ph-body">
+          <div class="ph-title"><h3>الأساس والقرارات</h3><span class="ph-when">الأسبوع 1–2</span><span class="pill accent">نحن هنا</span></div>
+          <ul>
+            <li>حسم الجولتين 1 و2 من القرارات.</li>
+            <li>استشارة محامٍ ومحاسب تركي متخصص في تصدير الخدمات، بقائمة 21 سؤالًا جاهزة في تقرير 04.</li>
+            <li>اختيار 3–5 أسماء، واختبارها مع أشخاص من كل لهجة، وفحص العلامات التجارية، ثم حجز الدومين بعد موافقتك.</li>
+            <li>فتح حساب Payoneer، ورقم واتساب جديد للمشروع، ومسودة شروط الخدمة وميثاق النزاهة الأكاديمية.</li>
+          </ul>
+          <p class="gate"><b>البوابة:</b> الوضع القانوني واضح، والسوق والخدمة القائدة محسومان، والاسم مختار مبدئيًا.</p>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="ph-n">1</div>
+        <div class="ph-body">
+          <div class="ph-title"><h3>البناء الأدنى</h3><span class="ph-when">الأسبوع 2–4</span></div>
+          <ul>
+            <li>موقع عربي بصفحة لكل خدمة قائدة، والكتالوج الكامل كخدمات "عند الطلب".</li>
+            <li>بوابة العملاء الأولى: فتح مشروع، ورابط تتبع سري بلا حساب، وحالات المشروع، وعروض أسعار وإيصالات PDF بالعربية، وروابط المقدم والباقي.</li>
+            <li>واتساب بيزنس يدويًا، وحجز أسماء الحسابات، وأول دفعة محتوى.</li>
+          </ul>
+          <p class="gate"><b>البوابة:</b> الموقع والبوابة يعملان، والدفع مجرَّب بعملية حقيقية، والشروط منشورة.</p>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="ph-n">2</div>
+        <div class="ph-body">
+          <div class="ph-title"><h3>اختبار السوق</h3><span class="ph-when">الأسبوع 5–12</span></div>
+          <ul>
+            <li>خلية أو خليتان (سوق × خدمة × 2–3 إعلانات) لمدة 4 أسابيع، بقواعد إيقاف وتوسيع مكتوبة مسبقًا.</li>
+            <li>حساب أقصى تكلفة مسموحة للمحادثة وللعميل قبل الإطلاق.</li>
+            <li>محتوى عضوي 4–5 ساعات أسبوعيًا، وقناة موازية اختيارية على منصة عمل حر.</li>
+          </ul>
+          <p class="gate"><b>البوابة:</b> تكلفة اكتساب العميل أقل من الهامش، وأول 5–10 عملاء بتقييمات.</p>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="ph-n">3</div>
+        <div class="ph-body">
+          <div class="ph-title"><h3>الأتمتة</h3><span class="ph-when">بالتوازي مع نهاية المرحلة 2</span></div>
+          <ul>
+            <li>واتساب Cloud API مع بوت Claude ضيق النطاق: يفصح أنه آلي، ويؤهّل العميل، ويحوّل إليك، ولا يرسل سعرًا أو رابط دفع إلا بموافقتك.</li>
+            <li>تتبع التحويلات على حدث "دفع المقدم"، ولوحة للمشاريع والدفعات والتكاليف.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="ph-n">4</div>
+        <div class="ph-body">
+          <div class="ph-title"><h3>التنظيم والتوسع</h3><span class="ph-when">الشهر 4 فما بعد</span></div>
+          <ul>
+            <li>اشتراكات شهرية، وسوق أو خدمة ثانية حسب الأرقام، وتسجيل العلامة (تركيا ثم مدريد).</li>
+            <li>إعادة تقييم الكيان: شركة Ltd تركية عند التوظيف، أو كيان أجنبي إن صار Stripe ضرورة، بعد استشارة دولية مكتوبة.</li>
+            <li>منتجات رقمية جاهزة (قوالب Excel عربية، قوالب n8n).</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MARKETS -->
+  <section class="sheet" id="markets">
+    <div class="sheet-head">
+      <div class="row"><h2>تقييم الأسواق من 100</h2><span class="sec-tag">§4</span></div>
+      <p class="sub">التقييم يجمع الطلب والقدرة على الدفع وكفاءة الإعلان والمنافسة وسهولة التحصيل والملاءمة الثقافية. مرّر المؤشر أو اضغط على أي سوق لترى السبب.</p>
+    </div>
+    <div class="bars" id="marketBars"></div>
+    <p class="note">الأسواق الخليجية قيّمها تقرير 02، والباقي تقرير 03، بأوزان متقاربة لكن غير متطابقة. المقارنة بين التقريرين تقريبية.</p>
+    <div class="split">
+      <div>
+        <p class="mini-h">أقوى تركيبات السوق × الشريحة (تقرير 02)</p>
+        <div class="bars" id="comboBars"></div>
+      </div>
+      <div>
+        <p class="mini-h">أسواق لا يُنصح بالإعلان المدفوع فيها الآن</p>
+        <ul class="warnlist">
+          <li><span class="pill hold">مراقبة</span><span><b>سوريا من الداخل:</b> العقوبات رُفعت، لكن Stripe ما زالت تحظرها وPayPal غير متاح. التوصية خدمة السوريين خارج سوريا الآن.</span></li>
+          <li><span class="pill hold">منافس</span><span><b>مصر:</b> نحو 850 ألف مستقل وأسعار تبدأ من 5$. مصدر محتمل للفريق أكثر منها سوقًا.</span></li>
+          <li><span class="pill hold">صعب</span><span><b>لبنان والعراق:</b> لبنان اقتصاد نقدي بلا PayPal أو Apple Pay، والعراق تحصيله صعب ويقطع الإنترنت أيام الامتحانات.</span></li>
+          <li><span class="pill hold">لاحقًا</span><span><b>المغرب العربي:</b> قيود صرف، والتعامل التقني بالفرنسية أو الدارجة.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVICES -->
+  <section class="sheet" id="services">
+    <div class="sheet-head">
+      <div class="row"><h2>الخدمات: من الكتالوج إلى الإطلاق</h2><span class="sec-tag">§5</span></div>
+      <p class="sub">الكتالوج الكامل 243 خدمة في 21 فئة، يظهر كله في الموقع. التوصية أن نعلن عن 3–5 خدمات فقط في البداية. التقييم يجمع الطلب والهامش ورافعة الذكاء الاصطناعي وقلة المخاطر وسماح الإعلانات وسرعة التسليم.</p>
+    </div>
+    <div class="split">
+      <div>
+        <p class="mini-h">أعلى 12 خدمة للإطلاق (من 100)</p>
+        <div class="bars" id="serviceBars"></div>
+      </div>
+      <div>
+        <p class="mini-h">ما يحتاج حذرًا أو صياغة خاصة</p>
+        <ul class="warnlist">
+          <li><span class="pill risk">ممنوع</span><span><b>كتابة الأبحاث وحل الواجبات والامتحانات:</b> سياسة Google وFiverr، وقوانين في إنجلترا وأيرلندا والنمسا وأستراليا. خارج المشروع أصلًا حسب رؤيتك.</span></li>
+          <li><span class="pill risk">ممنوع</span><span><b>توصيات التداول وإدارة الأموال:</b> جريمة في تركيا (المادة 109/2) وغرامات في السعودية. المسموح أدوات برمجية يشغّلها العميل بنفسه.</span></li>
+          <li><span class="pill pending">صياغة</span><span><b>دعم الطلاب:</b> يُسوَّق كتدريب وشرح ومراجعة وإعداد أدوات، والطالب هو المؤلف.</span></li>
+          <li><span class="pill pending">صياغة</span><span><b>الدعم التقني للأفراد:</b> Google يمنع إعلانه، فيُقدَّم ضمن باقات "تدريب الذكاء الاصطناعي" وعبر الإحالات وMeta.</span></li>
+          <li><span class="pill hold">شريك</span><span><b>الفوترة الإلكترونية السعودية (ZATCA):</b> فرصة موقوتة حتى 1 فبراير 2027، لكنها تحتاج حلًا معتمدًا أو شريكًا.</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="cards">
+      <div class="card"><h3>باقات ثابتة السعر</h3><p>13 باقة مقترحة، مثل: تشخيص الأتمتة، سير عمل واحد، موقع في أسبوع، موظف استقبال واتساب، ترتيب الفوضى التقنية.</p></div>
+      <div class="card"><h3>اشتراكات شهرية</h3><p>9 اشتراكات مقترحة: صيانة المواقع، تشغيل البوتات، التقارير الدورية، الدعم التقني للشركات، المدير التقني الجزئي.</p></div>
+      <div class="card"><h3>منتج رقمي مبكر</h3><p>قالب Excel عربي أو قوالب n8n كأداة تسويق تجلب عملاء محتملين بتكلفة منخفضة.</p></div>
+    </div>
+  </section>
+
+  <!-- PRICING -->
+  <section class="sheet" id="pricing">
+    <div class="sheet-head">
+      <div class="row"><h2>التسعير والمنافسة</h2><span class="sec-tag">§6</span></div>
+      <p class="sub" id="pricingSub">قاع المنصات العربية منخفض جدًا (خمسات من 5–10$)، ومتوسطات Fiverr أعلى بكثير. التوصية: "وسط احترافي" يتميّز بالسرعة ووضوح النطاق، بأسعار حسب المنطقة.</p>
+    </div>
+    <div class="cards" id="pricingCards">
+      <div class="card"><h3>مستقل (عينة 364 مشروعًا)</h3><p>الدعم والتدريب 50–100$، والأعمال والهندسة 100–250$، والبرمجة والذكاء الاصطناعي 250–500$.</p></div>
+      <div class="card"><h3>متوسطات Fiverr العالمية</h3><p>لوحة Power BI نحو 119$، وروبوت محادثة نحو 216$، ووكيل AI نحو 295–350$، وكشط بيانات 67–106$.</p></div>
+      <div class="card"><h3>أوروبا كمرجع أعلى</h3><p>متوسط أجر المستقلين في ألمانيا والنمسا وسويسرا نحو 103 يورو للساعة في 2026.</p></div>
+    </div>
+  </section>
+
+  <!-- LEGAL -->
+  <section class="sheet" id="legal">
+    <div class="sheet-head">
+      <div class="row"><h2>القانون والضرائب حسب وضعك</h2><span class="sec-tag">§7</span></div>
+      <p class="sub">بحث وليس استشارة قانونية؛ كل ما هنا يُعرض على محاسب تركي (mali müşavir) قبل التطبيق. <span class="flag" data-verify="legal">التقرير قيد التدقيق</span></p>
+    </div>
+    <div class="cards">
+      <div class="card"><span class="pill ok">الأبسط</span><h3>مواطن تركي</h3><ul><li>تحقق من الطلب 2–3 أسابيع، ثم تسجيل مستقل (serbest meslek) عند أول طلب مدفوع جاد.</li><li>خصم 100% للخدمات المؤهلة لعملاء الخارج.</li><li>إيصال e-SMM بلا ضريبة قيمة مضافة للعميل الأجنبي.</li></ul></div>
+      <div class="card"><span class="pill risk">تسوية أولًا</span><h3>أجنبي بإقامة بلا إذن عمل</h3><ul><li>لا قبض مال قبل تسوية وضع العمل.</li><li>المسارات: تسجيل أو منشأة فردية ثم تصريح عمل مستقل، أو شركة Ltd مع تصريح للشريك المدير (تأسيس ~620–800$ + رأس مال 50 ألف ليرة).</li></ul></div>
+      <div class="card"><span class="pill ok">مسار المواطن</span><h3>أجنبي بإذن عمل</h3><ul><li>نفس مسار المواطن، مع التحقق من أن نطاق الإذن يغطي العمل المستقل.</li></ul></div>
+      <div class="card"><span class="pill pending">مسار خاص</span><h3>سوري تحت الحماية المؤقتة</h3><ul><li>تصريح عمل مستقل بعد 6 أشهر، برقم ضريبي ومكان عمل.</li><li>إعفاء أُعلن في يونيو 2026، لكن نصه وشموله للعمل المستقل غير مؤكدين.</li></ul></div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>البند (تركيا 2026)</th><th>القيمة</th><th>ملاحظة</th></tr></thead>
+        <tbody>
+          <tr><td>الضمان الاجتماعي Bağ-Kur (أكبر كلفة ثابتة)</td><td class="num">10,157–11,808 ليرة/شهر (≈207–240$)</td><td>أُلغي دعم رواد الأعمال الشباب من 1/1/2026</td></tr>
+          <tr><td>محاسب لمستقل (الحد الأدنى في التعرفة)</td><td class="num">1,773 ليرة/شهر (≈36$)</td><td>السوق غالبًا أعلى؛ والمتخصص في التصدير أغلى</td></tr>
+          <tr><td>شرائح ضريبة الدخل لغير المؤهل</td><td class="num">15% إلى 40%</td><td>ربح مليون ليرة غير مؤهل ≈ 232,500 ليرة ضريبة</td></tr>
+          <tr><td>خصم تصدير الخدمات (م 89/13)</td><td class="num">100%</td><td>للمسجلين فقط، وبشروط التحويل والتوثيق</td></tr>
+          <tr><td>الكسب العرضي (م 82)</td><td class="num">معفى حتى 350,000 ليرة</td><td>لعدد قليل جدًا من الأعمال فقط</td></tr>
+          <tr><td>سقف سحب العملات المستقرة (MASAK)</td><td class="num">3,000$ يوميًا · 50,000$ شهريًا</td><td>عبر المنصات التركية</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="split">
+      <div>
+        <p class="mini-h">الشركات الأجنبية: لماذا لا يُنصح بها الآن؟</p>
+        <p class="sub">الشركة التي تُدار فعليًا من تركيا تُعامل غالبًا كمقيمة فيها وتدفع 25%، وأرباحها الموزعة عليك لا تستفيد من إعفاء النصف. وLLC الأمريكية تلزمها النموذج 5472 سنويًا بغرامة 25,000$ عند الإهمال. جورجيا لا تتيح Stripe ولا تحل شيئًا لمقيم في تركيا.</p>
+      </div>
+      <div>
+        <p class="mini-h">الترتيب البحثي للأشكال القانونية (من 100)</p>
+        <div class="bars" id="legalBars"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAYMENTS -->
+  <section class="sheet" id="payments">
+    <div class="sheet-head">
+      <div class="row"><h2>خيارات الدفع</h2><span class="sec-tag">§8</span></div>
+      <p class="sub">مقارنة القنوات لمقيم في تركيا، مع ما يصلك من فاتورة قيمتها 500$. السياسة المقترحة للدفعات: 100% مقدمًا للطلبات الصغيرة، و50/50 للمتوسطة، ومراحل للكبيرة. <span class="flag" data-verify="payments">التقرير قيد التدقيق</span></p>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>القناة</th><th>متاح بلا شركة؟</th><th>Apple / Google Pay</th><th>الرسوم</th><th>يصلك من 500$</th><th>ملاحظة</th></tr></thead>
+        <tbody>
+          <tr><td><b>Payoneer "طلب دفع"</b></td><td class="yes">نعم</td><td class="no">لا</td><td class="num">3.99% + 0.49$ ثم سحب 1.2–4%</td><td class="num">≈461–474$</td><td>الخيار الواقعي الآن؛ الرسوم الدقيقة تظهر داخل الحساب</td></tr>
+          <tr><td>iyzico رابط فردي</td><td class="yes">نعم</td><td class="no">لا</td><td class="num">4.49% + 0.25 ليرة</td><td class="num">≈477$ قبل رسم التحويل</td><td>تسوية بالليرة، ويستبعد "الاستشارات"؛ مناسب لعملاء تركيا</td></tr>
+          <tr><td>2Checkout (Verifone)</td><td class="maybe">بموافقة</td><td class="maybe">غير مؤكد</td><td class="num">بالعقد + 2% عبر الحدود</td><td class="num">غير معروف</td><td>يقبل أفرادًا وفئات خدمات؛ يستحق التقديم</td></tr>
+          <tr><td>عملات مستقرة مباشرة / BTCPay</td><td class="yes">تقنيًا</td><td class="no">لا</td><td class="num">0% + شبكة 2–4$ على العميل</td><td class="num">≈500$</td><td>الأرخص، لكن الغموض القانوني في تركيا هو الأعلى</td></tr>
+          <tr><td>Stripe عبر كيان أجنبي</td><td class="no">يحتاج كيانًا</td><td class="yes">نعم</td><td class="num">1.5–5.5% حسب البلد والبطاقة</td><td class="num">≈474–492$</td><td>أفضل تجربة، لكن الكيان مكلف ولا يُسقط الضريبة التركية</td></tr>
+          <tr><td>Tap عبر كيان أمريكي</td><td class="no">يحتاج كيانًا</td><td class="yes">نعم</td><td class="num">غير منشورة</td><td class="num">—</td><td>يفتح مدى وKNET لعملاء الخليج</td></tr>
+          <tr><td>PayPal · Wise · Papara · Param</td><td class="no">لا</td><td class="no">—</td><td>—</td><td>—</td><td>متوقفة أو مقيدة في تركيا، أو تحت الوصاية</td></tr>
+          <tr><td>Paddle · Lemon Squeezy · Polar</td><td class="no">للخدمات لا</td><td>—</td><td>—</td><td>—</td><td>تحظر الخدمات المخصصة؛ تصلح لاحقًا للمنتجات الرقمية</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul class="warnlist">
+      <li><span class="pill pending">انتبه</span><span><b>عملاء السعودية:</b> بطاقات "مدى فقط" لا تعمل مع تاجر أجنبي، والبطاقات المشتركة تعمل مع رسوم عملة 1.5–2.5% على العميل. والشركات السعودية تستقطع 5–15% عند الدفع لغير مقيم، فيجب أن يُذكر ذلك في عرض السعر.</span></li>
+      <li><span class="pill pending">انتبه</span><span><b>لا تُبقِ أرصدة في مؤسسات الدفع:</b> Papara سُحبت رخصتها وParam تحت الوصاية في 2025–2026. استخدم مزوّدين اثنين واسحب أولًا بأول.</span></li>
+      <li><span class="pill pending">انتبه</span><span><b>الدفعة المقدمة لا تمنع الاعتراض على البطاقة:</b> الحماية الحقيقية شروط مقبولة قبل الدفع، وأدلة تسليم، واعتماد كل مرحلة في البوابة.</span></li>
+    </ul>
+  </section>
+
+  <!-- BRAND -->
+  <section class="sheet" id="brand">
+    <div class="sheet-head">
+      <div class="row"><h2>البراند والاسم</h2><span class="sec-tag">§9</span></div>
+      <p class="sub">فُحص 167 اسمًا، وكل الكلمات العربية القصيرة المفردة دوميناتها محجوزة، فالحل كلمة عربية + لاحقة أو اسم مبتكر. توفر ‎.com أدناه أُعيد فحصه اليوم. التوفر لحظي وقد يتغير، والفحص القانوني للعلامات لم يتم بعد.</p>
+    </div>
+    <div class="split">
+      <div>
+        <p class="mini-h">نموذج البراند (من 100)</p>
+        <div class="bars" id="modelBars"></div>
+        <p class="note" style="margin-top:10px">الأوزان من تقرير 06 ويمكن تغييرها حسب أولوياتك.</p>
+      </div>
+      <div>
+        <p class="mini-h">الرسالة المقترحة</p>
+        <ul class="warnlist">
+          <li><span class="pill accent">الإعلانات</span><span><b>سرعة الذكاء الاصطناعي بمسؤولية مهندس.</b> تُثبت بفيديو قصير.</span></li>
+          <li><span class="pill accent">الموقع</span><span><b>الشريك التقني الواحد الموثوق.</b> مظلة لكل الخدمات.</span></li>
+          <li><span class="pill accent">التدريب</span><span><b>التقنية بلغتك لمن سبقته.</b> نبرة لخط كبار السن والتمكين.</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>الاسم</th><th>النطق والمعنى</th><th>التقييم</th><th>.com</th><th>شعار مقترح</th><th>تحفظ</th></tr></thead>
+        <tbody>
+          <tr><td><b class="mono">HazirLab</b></td><td>حاضر لاب: "أمرك، جاهز"، وhazır بالتركية تعني جاهز</td><td class="num">86</td><td class="yes">متاح</td><td>«اطلب… وحاضر.»</td><td>كلمة عامة في التركية؛ وكالة Hazır Works</td></tr>
+          <tr><td><b class="mono">Labeeb Studio</b></td><td>لبيب: "اللبيب بالإشارة يفهم"</td><td class="num">80</td><td class="yes">متاح</td><td>«أشِر… ونحن ننجز.»</td><td>Labeeb مستخدم في منصتين سعوديتين</td></tr>
+          <tr><td><b class="mono">UstazLab</b></td><td>أستاذ لاب: "أستاذك في التقنية"</td><td class="num">78</td><td class="yes">متاح</td><td>«نعلّمك، وننجز معك.»</td><td>يوحي بالتعليم أكثر من مشاريع الشركات</td></tr>
+          <tr><td><b class="mono">WakeelLab</b></td><td>وكيل لاب: "وكيلك الذي يعمل عنك"</td><td class="num">76</td><td class="yes">متاح</td><td>«وكيلك التقني… يعمل عنك.»</td><td>حرف W في التركية؛ wakeel.com موقع تأمين</td></tr>
+          <tr><td><b class="mono">YusrLab</b></td><td>يُسر لاب: يُسر ≈ user</td><td class="num">75</td><td class="yes">متاح</td><td>«التقنية… بيُسر.»</td><td>النطق غير مريح للتركي والإنجليزي</td></tr>
+          <tr><td><b class="mono">MahirWorks</b></td><td>ماهر ووركس: "أعمال ماهرة"</td><td class="num">74</td><td class="yes">متاح</td><td>«شغل ماهر بسرعة الذكاء الاصطناعي.»</td><td>اسم علم شائع</td></tr>
+          <tr><td><b class="mono">ByteQan</b></td><td>بايتقان: Byte + إتقان</td><td class="num">74</td><td class="yes">متاح</td><td>«إتقان في كل بايت.»</td><td>يحتاج شرحًا؛ الأقوى قانونيًا</td></tr>
+          <tr><td><b class="mono">HasoobiLab</b></td><td>حاسوبي لاب: "كل ما على الحاسوب"</td><td class="num">73</td><td class="yes">متاح</td><td>—</td><td>تهجئات متعددة</td></tr>
+          <tr><td><b class="mono">MiftahLab</b></td><td>مفتاح لاب: "مفتاح كل مهمة"</td><td class="num">72</td><td class="yes">متاح</td><td>—</td><td>تهجئات Muftah وMeftah</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">أسماء يُنصح بتجنبها لتعارضات أو دلالات سلبية: Tamam (شركة سعودية للذكاء الاصطناعي)، ناجز، تمكين، مساند، "شغّالة"، "ماشي"، SahhelLab ("الله يسهّل" تُفهم اعتذارًا).</p>
+  </section>
+
+  <!-- TECH -->
+  <section class="sheet" id="tech">
+    <div class="sheet-head">
+      <div class="row"><h2>النظام التقني</h2><span class="sec-tag">§10</span></div>
+      <p class="sub">لا يوجد منتج جاهز يجمع بوابة عربية RTL، ورابط تتبع بلا حساب، وواتساب، وبوابات دفع متاحة من تركيا. لذلك يقترح البحث بناء النظام بـ Claude Code.</p>
+    </div>
+    <div class="cards">
+      <div class="card"><span class="pill hold">الأدنى</span><div class="big num">1–23$<small style="font-size:13px;color:var(--muted);font-family:var(--f-body)"> /شهر</small></div><p>موقع ثابت، وواتساب يدوي، وبلا بوت. 3–5 أيام من وقتك.</p></div>
+      <div class="card"><span class="pill accent">القياسي · توصية</span><div class="big num">8–38$<small style="font-size:13px;color:var(--muted);font-family:var(--f-body)"> /شهر</small></div><p>موقع على Cloudflare، وبوابة Next.js وPostgres على خادم واحد، وواتساب Cloud API، وبوت Claude. يضاف إليها رسائل واتساب واستهلاك API. 2–4 أسابيع.</p></div>
+      <div class="card"><span class="pill hold">المتقدم</span><div class="big num">270–570$<small style="font-size:13px;color:var(--muted);font-family:var(--f-body)"> /شهر</small></div><p>منصات مدفوعة وقواعد بيانات مُدارة. 4–8 أسابيع. غير مبرر في البداية.</p></div>
+    </div>
+    <div class="split">
+      <div>
+        <p class="mini-h">تكلفة رسالة واتساب حسب بلد العميل (منذ 1/10/2026)</p>
+        <div class="tbl-wrap">
+          <table style="min-width:0">
+            <thead><tr><th>البلد</th><th>رسالة خدمة</th><th>رسالة تسويق</th></tr></thead>
+            <tbody>
+              <tr><td>تركيا</td><td class="num mono">$0.0009</td><td class="num mono">$0.0109</td></tr>
+              <tr><td>الأردن ولبنان والبحرين</td><td class="num mono">$0.0091</td><td class="num mono">$0.0392</td></tr>
+              <tr><td>السعودية</td><td class="num mono">$0.0107</td><td class="num mono">$0.0576</td></tr>
+              <tr><td>الإمارات</td><td class="num mono">$0.0157</td><td class="num mono">$0.0576</td></tr>
+              <tr><td>ألمانيا</td><td class="num mono">$0.0550</td><td class="num mono">$0.1365</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note" style="margin-top:8px">أول 1,000 رسالة خدمة شهريًا مجانية لكل رقم، والمحادثات القادمة من إعلانات Click-to-WhatsApp مجانية لمدة 72 ساعة.</p>
+      </div>
+      <div>
+        <p class="mini-h">قواعد البوت</p>
+        <ul class="warnlist">
+          <li><span class="pill accent">إلزامي</span><span>يعمل بمفتاح Claude API، لا باشتراك Max.</span></li>
+          <li><span class="pill accent">إلزامي</span><span>يفصح في أول رسالة أنه مساعد آلي، ويحوّل إليك بكلمة أو زر.</span></li>
+          <li><span class="pill accent">إلزامي</span><span>لا يرسل سعرًا أو رابط دفع قبل موافقتك.</span></li>
+          <li><span class="pill accent">إلزامي</span><span>يرفض طلبات الغش الأكاديمي والنصائح الاستثمارية.</span></li>
+          <li><span class="pill hold">تقدير</span><span>كلفة الذكاء الاصطناعي ≈18$ لـ 500 محادثة و≈59$ لـ 2,000 (مزيج Haiku وSonnet)، وغالبًا داخل رصيد Max المضمّن.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- MARKETING -->
+  <section class="sheet" id="marketing">
+    <div class="sheet-head">
+      <div class="row"><h2>التسويق والإعلانات</h2><span class="sec-tag">§11</span></div>
+      <p class="sub">خلية اختبار واحدة أو اثنتان لمدة 4 أسابيع، ثم قرار في الأسبوع 8. معادلة السوق: أقصى تكلفة محادثة = متوسط الطلب × الهامش × نسبة الإغلاق. طلب بـ 80$ يسمح بنحو 4.4$ للمحادثة، وطلب بـ 800$ يسمح بنحو 44$.</p>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>السيناريو</th><th>شهريًا</th><th>التوزيع</th><th>مجموع 90 يومًا</th><th>متى يناسب</th></tr></thead>
+        <tbody>
+          <tr><td><b>أ</b></td><td class="num">≈300$</td><td>Meta Click-to-WhatsApp وحدها</td><td class="num">≈880–1,200$</td><td>حماية رأس المال، سوق رخيص</td></tr>
+          <tr><td><b>ب · توصية</b></td><td class="num">≈750$</td><td>Meta ≈450$ + Google ≈300$</td><td class="num">≈2,200–2,890$</td><td>مقارنة قناتين وتعلم أسرع</td></tr>
+          <tr><td><b>ج</b></td><td class="num">≈1,500$</td><td>Meta ≈900$ + Google ≈600$، ثم TikTok أو Snapchat</td><td class="num">≈4,460–5,700$</td><td>عينة كافية لتقدير تكلفة العميل بثقة</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="split">
+      <div>
+        <p class="mini-h">ترتيب القنوات (من 100)</p>
+        <div class="bars" id="channelBars"></div>
+      </div>
+      <div>
+        <p class="mini-h">التوقيت</p>
+        <ul class="warnlist">
+          <li><span class="pill ok">أرخص</span><span><b>يناير:</b> أرخص شهر إعلانيًا، وموسم طلاب (ديسمبر–يناير).</span></li>
+          <li><span class="pill pending">أغلى</span><span><b>الجمعة البيضاء ورمضان:</b> ارتفاع 30–68% في تكلفة الظهور. رمضان 2027 يبدأ نحو 8 فبراير.</span></li>
+          <li><span class="pill accent">فرصة</span><span><b>الربع الرابع:</b> ميزانيات الشركات، ومواعيد الفوترة الإلكترونية في السعودية.</span></li>
+          <li><span class="pill accent">طلاب</span><span><b>أبريل–يونيو:</b> مشاريع التخرج والامتحانات.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- COSTS -->
+  <section class="sheet" id="costs">
+    <div class="sheet-head">
+      <div class="row"><h2>تقدير التكاليف الشهرية</h2><span class="sec-tag">§12</span></div>
+      <p class="sub">مسودة لأول 3 أشهر. البنود الكبرى هي الإعلانات والتسجيل الرسمي، أما الخوادم والدومين فهامشية.</p>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>البند</th><th>من</th><th>إلى</th><th>ملاحظة</th></tr></thead>
+        <tbody>
+          <tr><td>الإعلانات</td><td class="num">300$</td><td class="num">1,500$</td><td>حسب السيناريو (ق5)</td></tr>
+          <tr><td>احتياطي رسوم وضرائب الإعلانات</td><td class="num">30$</td><td class="num">375$</td><td>10–25%؛ منها رسوم Meta 5% عند استهداف تركيا</td></tr>
+          <tr><td>التسجيل الرسمي في تركيا (إن كنت مؤهلًا)</td><td class="num">≈245$</td><td class="num">≈280$</td><td>Bağ-Kur + محاسب</td></tr>
+          <tr><td>الموقع والبوابة والخادم</td><td class="num">1$</td><td class="num">38$</td><td>الخيار القياسي</td></tr>
+          <tr><td>رسائل واتساب API</td><td class="num">0$</td><td class="num">300$+</td><td>حسب البلد والحجم</td></tr>
+          <tr><td>Claude API للبوت</td><td class="num">0$</td><td class="num">60$</td><td>غالبًا ضمن رصيد Max</td></tr>
+          <tr><td>الدومين</td><td class="num">1$</td><td class="num">3$</td><td>11$ سنويًا للاسم</td></tr>
+          <tr><td>رسوم الدفع</td><td class="num">5%</td><td class="num">8%</td><td>من كل عملية عبر Payoneer</td></tr>
+          <tr><td>اشتراكات Claude Max</td><td colspan="2">قائمة أصلًا</td><td>100–200$ للاشتراك</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- REGISTER -->
+  <section class="sheet" id="register">
+    <div class="sheet-head">
+      <div class="row"><h2>سجل القرارات</h2><span class="sec-tag">§13</span></div>
+      <p class="sub">كل القرارات المفتوحة مع خياراتها وتوصية البحث. لا يتحول أي منها إلى "محسوم" إلا بموافقتك. النسخة المرجعية في المستودع: <span class="mono">docs/DECISIONS.md</span></p>
+    </div>
+    <div class="filters" role="group" aria-label="تصفية حسب الجولة" id="filters"></div>
+    <div class="reg" id="reg"></div>
+  </section>
+
+  <!-- LIBRARY -->
+  <section class="sheet" id="library">
+    <div class="sheet-head">
+      <div class="row"><h2>التقارير البحثية</h2><span class="sec-tag">§14</span></div>
+      <p class="sub">كل تقرير مكتوب بالعربية مع المصادر والتواريخ ودرجة الثقة. تفتح في GitHub (فرع العمل الحالي).</p>
+    </div>
+    <div class="lib" id="lib"></div>
+  </section>
+
+  <footer>أعدّه Claude بصفته مدير المشروع في المرحلة الحالية · كل الأرقام من تقارير 8 أكتوبر 2026 وتحتاج تحققًا قبل التطبيق</footer>
+</main>
+</div>
+
+<script>
+(function () {
+  function bars(id, rows, opts) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var max = (opts && opts.max) || 100;
+    var hi = (opts && opts.highlight) || [];
+    el.innerHTML = rows.map(function (r) {
+      var w = Math.max(2, Math.round((r[1] / max) * 100));
+      var dim = hi.length && hi.indexOf(r[0]) === -1 ? ' dim' : '';
+      var sub = r[3] ? '<small>' + r[3] + '</small>' : '';
+      return '<div class="bar-row" tabindex="0">' +
+        '<div class="bar-label">' + r[0] + sub + '</div>' +
+        '<div class="bar-track"><div class="bar' + dim + '" style="width:calc(' + w + ' * 0.84%)"></div><span class="bar-val">' + r[1] + '</span></div>' +
+        (r[2] ? '<div class="tip">' + r[2] + '</div>' : '') +
+        '</div>';
+    }).join('');
+  }
+
+  bars('marketBars', [
+    ['السعودية', 74, 'الطلب 95 · الدفع 72 · الإعلان 70 · المنافسة 40 · الوصول 60 · الثقافة 85. أكبر عدد طلاب ومنشآت، وفجوة AI واسعة.', 'خليج'],
+    ['الإمارات', 71, 'الطلب 80 · الدفع 88 · الإعلان 62 · المنافسة 35 · الوصول 82 · الثقافة 55. الأسهل تحصيلًا، لكن العرب أقلية ولغة الأعمال إنجليزية.', 'خليج'],
+    ['ألمانيا (الناطقون بالعربية)', 71, 'نحو 1.4 مليون يتكلمون العربية في البيت. دفع باليورو، وإعلان أغلى (CPM 9–10$)، وعبء قانوني أعلى.', 'جالية'],
+    ['تركيا: الطلاب وأصحاب الأعمال العرب', 70, 'قربك الجغرافي واللهجي وإعلان رخيص. لكن العميل داخل تركيا لا يستفيد من خصم تصدير الخدمات.', 'جالية'],
+    ['الأردن', 66, 'الدفع سهل (Apple Pay وPayPal وCliQ)، والقدرة الشرائية متوسطة، والمنافسة المحلية قوية.', 'مشرق'],
+    ['السويد', 66, 'نحو 424 ألف مولود في دول عربية، ودخل مرتفع.', 'جالية'],
+    ['هولندا', 64, '189 ألف مولود في سوريا و178 ألف في المغرب؛ الجيل الثاني يتعامل بالهولندية غالبًا.', 'جالية'],
+    ['عُمان', 63, 'جمهور عربي وإعلان أرخص، لكن أدنى قدرة شرائية خليجيًا.', 'خليج'],
+    ['الكويت', 62, 'قدرة دفع جيدة، لكن KNET المحلية وحظر الكريبتو يقيدان الوصول.', 'خليج'],
+    ['البحرين', 62, 'سهلة تنظيميًا لكنها صغيرة جدًا (1.65 مليون).', 'خليج'],
+    ['قطر', 61, 'الأغنى للفرد، لكنها صغيرة والإعلان فيها مرتفع التكلفة.', 'خليج'],
+    ['العراق', 58, 'كبير وشاب وإعلان رخيص، لكن التحصيل صعب.', 'مشرق'],
+    ['لبنان', 55, 'اقتصاد نقدي، على القائمة الرمادية لـ FATF.', 'مشرق'],
+    ['سوريا (الداخل)', 51, 'طلب مستقبلي كبير، لكن Stripe تحظرها ولا PayPal.', 'مشرق'],
+    ['مصر', 47, 'منافس سعري أكثر منها سوقًا.', 'شمال أفريقيا']
+  ], { highlight: ['السعودية', 'الإمارات', 'ألمانيا (الناطقون بالعربية)', 'تركيا: الطلاب وأصحاب الأعمال العرب'] });
+
+  bars('comboBars', [
+    ['السعودية × طلاب الدراسات العليا والهندسة', 85, '2.01 مليون طالب تعليم عالٍ، منهم ~278 ألف ماجستير. يحتاج صياغة تدريب وأدوات بسبب سياسة Google.'],
+    ['الإمارات × المنشآت الصغيرة', 82, '1.4 مليون شركة وقدرة دفع عالية ودفع سهل؛ منافسة دبي قوية.'],
+    ['السعودية × المنشآت الصغيرة', 80, '~1.7 مليون سجل منشأة وفجوة AI؛ منافسة شديدة واستقطاع ضريبي محتمل.'],
+    ['السعودية × أدوات بيانات التداول', 75, '~6.5 مليون مستثمر فرد؛ برمجيات فقط دون توصيات أو إدارة أموال.']
+  ]);
+
+  bars('serviceBars', [
+    ['أتمتة Excel / Google Sheets', 96, 'طلب مثبت في خمسات، وسريعة جدًا بالذكاء الاصطناعي، ومخاطرها منخفضة.'],
+    ['مواقع تعريفية وصفحات هبوط', 92, 'طلب عالٍ ومنافسة شديدة؛ التميّز بالسرعة والتتبع.'],
+    ['أتمتة سير العمل n8n / Make', 90, 'اتجاه صاعد عالميًا والعرض العربي محدود.'],
+    ['إعداد التتبع GA4 / Pixel / CAPI', 87, 'يُباع للمعلنين والمتاجر، وتسليمه قصير.'],
+    ['لوحات بيانات Power BI / Looker', 85, 'متوسط Fiverr نحو 119$، وقابلة لاشتراك تقارير.'],
+    ['تحويل PDF وصور إلى Excel مع OCR عربي', 85, 'سريعة جدًا ومدخل للعملاء، لكن أسعارها منخفضة.'],
+    ['سكربتات Python وأدوات مخصصة', 84, 'تخدم كل الشرائح، ورافعة AI عالية جدًا.'],
+    ['مساعد واتساب ذكي', 82, 'دخل شهري متكرر؛ يحتاج حسابًا دقيقًا لتكاليف Meta وAPI.'],
+    ['متاجر سلة / زد / شوبيفاي', 82, 'سلة تعلن عن أكثر من 68 ألف تاجر، وزد أقل منافسة.'],
+    ['تدريب AI للمهنيين وكبار السن', 81, 'يبني الثقة ويستهدف فجوة التبنّي.'],
+    ['ترتيب الفوضى التقنية للشركات', 80, 'إعلان B2B مسموح، ومدخل للدعم الشهري.'],
+    ['مساعد معرفي RAG على مستندات الشركة', 79, 'هامش مرتفع، والطلب العربي يتشكل.']
+  ]);
+
+  bars('legalBars', [
+    ['مستقل (serbest meslek)', 86, 'الأنسب للمرحلة 1 للمواطن أو حامل التصريح.'],
+    ['منشأة فردية تجارية', 74, 'بديل إن صُنّف النشاط تجاريًا (نموذج الوكالة).'],
+    ['شركة Ltd تركية', 70, 'أنسب للمرحلة 2: حماية الذمة وخصم 100%.'],
+    ['كسب عرضي (للاختبار فقط)', 52, 'لا يصلح لنشاط معلن مستمر.'],
+    ['LLC أمريكية', 42, 'تتيح Stripe ولا تسقط الضريبة التركية.'],
+    ['شركة إستونية OÜ', 40, 'ميزة الربح المحتجز تضيع إن عُدّت مقيمة في تركيا.'],
+    ['شركة بريطانية', 36, 'خطر إقامة مزدوجة.'],
+    ['العمل دون أي تسجيل', 5, 'غرامة 150% وفائدة شهرية، وللأجنبي خطر ترحيل.']
+  ], { highlight: ['مستقل (serbest meslek)', 'منشأة فردية تجارية', 'شركة Ltd تركية'] });
+
+  bars('modelBars', [
+    ['استوديو يقوده المؤسس (هجين)', 75.5, 'ثقة الوجه والصوت + صورة مؤسسية + قابلية التفويض والبيع.'],
+    ['وكالة بلا وجه', 67.5, 'قابلة للبيع والتفويض، لكن ثقتها أضعف لدى الأفراد العرب.'],
+    ['براند شخصي', 52, 'أعلى ثقة فردية، لكنه لا يُفوَّض ولا يُباع بسهولة.']
+  ], { highlight: ['استوديو يقوده المؤسس (هجين)'] });
+
+  bars('channelBars', [
+    ['Meta Click-to-WhatsApp', 85, 'محادثة مباشرة، ونافذة مجانية، وميزانية مرنة.'],
+    ['Google Search (للشركات)', 78, 'نية شراء عالية، والدعم التقني للشركات مسموح.'],
+    ['محتوى قصير عضوي', 75, 'مجاني، يغذي الإعلانات ويبني الثقة.'],
+    ['المجتمعات (فيسبوك / تلغرام)', 65, 'دخل مبكر في الجاليات، ويستهلك الوقت.'],
+    ['منصات العمل الحر', 62, 'تقييمات ودخل مبكر، والعميل يبقى للمنصة.'],
+    ['LinkedIn عضوي', 60, 'للشركات، وقوي في الإمارات.'],
+    ['TikTok Ads', 45, 'حد أدنى نحو 20$ يوميًا لكل مجموعة إعلانية.'],
+    ['Snapchat Ads (السعودية)', 45, 'وصول كبير، وخطر سياسات الطلاب عالٍ.']
+  ]);
+
+  var ROUNDS = ['الأساس', 'المال والقانون', 'الخدمات والسياسات', 'البراند والاسم', 'التقنية والتشغيل'];
+  var D = [
+    [1,'ق1','ما وضعك القانوني في تركيا؟','مواطن / إقامة بلا إذن عمل / إذن عمل / حماية مؤقتة','— (معلومة تحدد كل شيء)'],
+    [1,'ق2','نموذج البراند','شخصي / وكالة بلا وجه / استوديو يقوده المؤسس','الهجين'],
+    [1,'ق3','سوق البداية (سوق أو سوقان)','الخليج / العرب في ألمانيا والنمسا / العرب داخل تركيا / الأردن','السعودية + خلية إمارات لخدمات الأعمال'],
+    [1,'ق4','الخدمة القائدة في الإعلانات','أتمتة الأعمال / مواقع ومتاجر / تدريب الطلاب / تمكين الأفراد','أتمتة الأعمال + الحضور الرقمي ثانويًا'],
+    [2,'ق5','ميزانية اختبار الإعلانات الشهرية وأقصى خسارة','≈300$ / ≈750$ / ≈1,500$','750$ إن سمحت السيولة، وإلا 300$'],
+    [2,'ق6','إدارة المرحلة 0 قبل التسجيل','تحقق بلا قبض / كسب عرضي محدود / تسجيل فوري','تحقق 2–3 أسابيع ثم تسجيل عند أول طلب جاد'],
+    [2,'ق7','الشكل القانوني داخل تركيا','مستقل / منشأة فردية / Ltd','مستقل أو منشأة فردية حسب المحاسب'],
+    [2,'ق8','قناة تحصيل البطاقات الآن','Payoneer / iyzico / 2Checkout / تأجيل','Payoneer + تقديم موازٍ على 2Checkout'],
+    [2,'ق9','سياسة الكريبتو','لا الآن / مستقرة للأجانب فقط / قبول معلن','لا الآن، ثم مستقرة للأجانب بعد المحاسب'],
+    [2,'ق10','سياسة الدفعة المقدمة','متدرجة / 50/50 / 30/70','المتدرجة'],
+    [2,'ق11','عملاء داخل تركيا','لاحقًا / من البداية','لاحقًا'],
+    [2,'ق12','شركة أجنبية لفتح Stripe','لا الآن / LLC أمريكية / إستونيا / بريطانيا / الإمارات','لا الآن'],
+    [2,'ق13','نوع المحاسب','عام / متخصص في تصدير الخدمات / منصة إلكترونية','متخصص في تصدير الخدمات'],
+    [2,'ق14','العملة ومن يتحمل رسوم الدفع','دولار / دولار + يورو / محلية — ضمن السعر / خصم / رسم إضافي','دولار + يورو، والرسوم ضمن السعر'],
+    [3,'ق15','سياسة خدمات الطلاب','تعليمي صارم / تعليمي + رمادي بضوابط / خدمة كاملة','تعليمي صارم أو بضوابط؛ الكاملة مرفوضة'],
+    [3,'ق16','الفينتك والتداول','لا الآن / أدوات بلا إعلانات / أدوات مع إعلانات','أدوات فقط بلا إعلانات 90 يومًا'],
+    [3,'ق17','الدعم التقني للأفراد وكبار السن','لا يُقدَّم / إحالات وواتساب / ضمن باقات تدريب AI','باقات التدريب + الإحالات'],
+    [3,'ق18','عدد الخدمات المعلنة في البداية','3–5 / 8–10 / كل الكتالوج','3–5'],
+    [3,'ق19','التموضع السعري','منخفض / وسط احترافي / مرتفع','وسط احترافي بأسعار حسب المنطقة'],
+    [3,'ق20','الاشتراكات الشهرية','من اليوم الأول / بعد أول 10 عملاء','من اليوم الأول للصيانة والبوتات'],
+    [3,'ق21','منصات العمل الحر كقناة موازية','خمسات وكفيل / Fiverr وUpwork / لا','خدمة أو اثنتان على خمسات أو كفيل'],
+    [3,'ق22','عملاء داخل سوريا','لا الآن / السوريون خارجها فقط / قنوات بديلة','السوريون خارج سوريا فقط'],
+    [4,'ق23','درجة ظهورك الشخصي','وجه واسم كامل / وجه واسم أول / صوت وشاشة / بلا ظهور','حسب وضعك القانوني'],
+    [4,'ق24','معالجة "نعمل كل شيء"','براند واحد + صفحات / براند أم + خطوط / براندات منفصلة','براند واحد + صفحات لكل شريحة'],
+    [4,'ق25','نمط الاسم','عربي + لاحقة / مبتكر / إنجليزي وصفي / باسمك','عربي + لاحقة'],
+    [4,'ق26','الأسماء المرشحة للاختبار','HazirLab, Labeeb Studio, WakeelLab, UstazLab, ByteQan… أو أسماء منك','الخمسة المذكورة'],
+    [4,'ق27','حجز الدومينات','.com للمختار / .com+.net+.ai / .com لثلاثة أسماء','.com لثلاثة أسماء (~33$)'],
+    [4,'ق28','الرسالة الرئيسية','الشريك الواحد / سرعة AI بمسؤولية مهندس / التقنية بلغتك','(ب) للإعلانات و(أ) للموقع'],
+    [4,'ق29','اللغة واللهجة','العربية أولًا / ثنائي / الإنجليزية أولًا','العربية أولًا ولهجة السوق في الإعلانات'],
+    [4,'ق30','تسجيل العلامة التجارية','تركيا فقط / تركيا ثم مدريد / تأجيل','تركيا بعد الفحص ثم مدريد'],
+    [4,'ق31','الاتجاه البصري','المهندس الموثوق / سرعة الذكاء / كوفي البكسل','لا حسم قبل فحص الاسم','hold'],
+    [5,'ق32','تشغيل واتساب','يدوي / Cloud API + بوت / مزوّد جاهز / التعايش','اليدوي أولًا ثم Cloud API + بوت'],
+    [5,'ق33','رقم واتساب','رقم تركي جديد / رقم من سوق مستهدف / رقمك الحالي','رقم جديد مخصص'],
+    [5,'ق34','البوابة والمشاريع والمستندات','مخصص / Invoice Ninja / SaaS / هجين','مخصص، أو هجين للإطلاق الأسرع'],
+    [5,'ق35','الاستضافة','Hetzner / DigitalOcean / Supabase + Cloudflare','خادم واحد + Cloudflare'],
+    [5,'ق36','البريد','Cloudflare + Resend / Zoho / Google Workspace','المجاني الآن ثم Workspace'],
+    [5,'ق37','نموذج البوت وتمويله','Haiku / Sonnet / مزيج — رصيد Max / شراء / الاثنان','مزيج بعد اختبار 50 محادثة'],
+    [5,'ق38','حسابات Claude للفريق','أنت فقط / خطة Team / كل فرد بحسابه','أنت فقط الآن'],
+    [5,'ق39','نطاق الـ MVP','4 أسابيع / الأدنى أولًا / البوت أولًا','4 أسابيع، أو الأدنى إن كانت الميزانية صغيرة']
+  ];
+  var filtersEl = document.getElementById('filters');
+  var regEl = document.getElementById('reg');
+  var current = 0;
+  try { current = parseInt(localStorage.getItem('regRound') || '0', 10) || 0; } catch (e) {}
+  function renderFilters() {
+    var labels = ['الكل'].concat(ROUNDS.map(function (r, i) { return 'الجولة ' + (i + 1) + ': ' + r; }));
+    filtersEl.innerHTML = labels.map(function (l, i) {
+      return '<button type="button" data-r="' + i + '" aria-pressed="' + (i === current) + '">' + l + '</button>';
+    }).join('');
+  }
+  function renderReg() {
+    var html = '', last = 0;
+    D.forEach(function (d) {
+      if (current && d[0] !== current) return;
+      if (d[0] !== last) { html += '<div class="reg-round">الجولة ' + d[0] + ': ' + ROUNDS[d[0] - 1] + '</div>'; last = d[0]; }
+      var st = d[5] === 'hold' ? '<span class="pill hold">مؤجَّل</span>' : '<span class="pill pending">معلّق</span>';
+      html += '<div class="dec"><span class="id">' + d[1] + '</span><div class="body"><span class="qq">' + d[2] + '</span><span class="oo">' + d[3] + '</span><span class="rr"><span>توصية البحث: </span>' + d[4] + '</span></div>' + st + '</div>';
+    });
+    regEl.innerHTML = html;
+  }
+  filtersEl.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    current = parseInt(b.getAttribute('data-r'), 10);
+    try { localStorage.setItem('regRound', String(current)); } catch (err) {}
+    renderFilters(); renderReg();
+  });
+  renderFilters(); renderReg();
+
+  var BASE = 'https://github.com/hammamsawalma/MyOwnProject/blob/claude/vigilant-johnson-j69fvk/';
+  var LIB = [
+    ['00', 'docs/00-vision-brief.md', 'الرؤية الأصلية', 'كما شرحتها في أول جلسة'],
+    ['01', 'docs/research/01-services-catalog.md', 'كتالوج الخدمات', '243 خدمة في 21 فئة، والقائمة القصيرة'],
+    ['02', 'docs/research/02-market-gulf.md', 'سوق الخليج', 'ست دول، والشرائح، وتكاليف الإعلان'],
+    ['03', 'docs/research/03-market-levant-diaspora-turkey.md', 'المشرق والجاليات', 'تركيا وأوروبا والمشرق ومصر'],
+    ['04', 'docs/research/04-legal-tax-company.md', 'القانون والضرائب والشركات', 'تركيا، والأجانب، والكريبتو، والكيانات الأجنبية'],
+    ['05', 'docs/research/05-payments.md', 'الدفع', 'البطاقات وApple Pay والكريبتو والرسوم'],
+    ['06', 'docs/research/06-brand-positioning-naming.md', 'البراند والاسم', 'النموذج، والتموضع، و167 اسمًا مفحوصًا'],
+    ['07', 'docs/research/07-tech-stack-operations.md', 'النظام التقني', 'الموقع والبوابة وواتساب والبوت والتكاليف'],
+    ['08', 'docs/research/08-marketing-ads-social.md', 'التسويق والإعلانات', 'القنوات، وسياسات الإعلان، وخطة 90 يومًا'],
+    ['09', 'docs/research/09-pricing-competition-ops.md', 'التسعير والتشغيل', 'المنافسون، ونماذج التسعير، وسياسات المشاريع'],
+    ['PL', 'docs/PLAN.md', 'الخطة الرئيسية', 'المراحل والبوابات والتكاليف'],
+    ['DC', 'docs/DECISIONS.md', 'سجل القرارات', 'المعلّق والمحسوم']
+  ];
+  document.getElementById('lib').innerHTML = LIB.map(function (l) {
+    return '<a href="' + BASE + l[1] + '" target="_blank" rel="noopener"><span class="n">' + l[0] + '</span><span>' + l[2] + '<small>' + l[3] + '</small></span></a>';
+  }).join('');
+})();
+</script>
